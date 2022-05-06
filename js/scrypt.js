@@ -1,19 +1,21 @@
 var canvas = document.querySelector('#gameCanvas');
 const tileSize = 16;
-const viewWidth = 30;
-const viewHeight = 20;
+const viewWidth = 10;
+const viewHeight = 10;
 const scale = 2;
 const worldWidth = viewWidth * 4;
 const worldHeight = viewHeight * 4;
+const startRowCol = {row:Math.floor(viewHeight/2),col:Math.floor(viewWidth/2)};
 const mapSize = {width: worldWidth*tileSize*scale, height: worldHeight*tileSize*scale};
-const worldRow = 0;
-const worldCol = 0;
+const worldRowCol = {row: 0, col:0};
+const walkedDistance = {x:0, y:0};
+const walkedDistance2 = {x:0, y:0};
 canvas.setAttribute("height",(tileSize*scale)*viewHeight);
 canvas.setAttribute("width",(tileSize*scale)*viewWidth);
 
 const canvasMiddle = {x:canvas.width/2, y:canvas.height/2}
 
-const playerSpeed = 5;
+const playerSpeed = (16*scale)/8;
 const fps = 30;
 let now;
 let then = Date.now();
@@ -30,15 +32,9 @@ heroSpriteSheetFlip.src = 'img/chara_hero_flip.png';
 const tileMap = new Image(320,384);
 tileMap.src = 'img/tiles_dungeon.png';
 
-const heroSize = 48;
-let heroIdleCounter = 0;
+const heroSize = 48*scale;
 
-const heroIdleTime = 100;
-let heroIdleTimeCounter = 0;
-heroIdle = [[0,0,heroSize, heroSize], 
-            [heroSize,0,heroSize, heroSize],
-            [heroSize*2,0,heroSize, heroSize],
-            [heroSize,0,heroSize, heroSize]];
+
 function getFrames(row, frames, size){
     let framesArray = [];
     for(let i = 0; i < frames.length; i++){
@@ -46,13 +42,13 @@ function getFrames(row, frames, size){
     }
     return framesArray;
 }
-console.log(getFrames(0,[0,1,2,1],48));
 
 class Hero {
     constructor(hp, exp, attack, image, imageFlip){
         this.states = {
             idle: 'idle',
             walk: 'walk',
+            stop: 'stop',
             attack:'attack',
             hit: 'hit'
         }
@@ -63,15 +59,18 @@ class Hero {
             up: 'up',
             down: 'down'
         }
-        this.direction = this.directions.left,
-        this.x = canvasMiddle.x-(heroSize/2),
-        this.y = canvasMiddle.y-(heroSize/2),
-        this.worldPos = {x:mapSize.width/2, y:mapSize.height/2},
+        this.direction = this.directions.right,
+        this.walk = false,
+        this.x =tileSize*scale+(tileSize*scale/2-heroSize/scale), //15*tileSize*scale,
+        this.y =tileSize*scale+(tileSize*scale/4 -heroSize/scale), //10*tileSize*scale,
+        this.walkedDistance = {x:0, y:0},
+        this.worldPos = {x:startRowCol.row*tileSize*scale, y:startRowCol.col*tileSize*scale},
+        this.posRowCol = {row: startRowCol.row, col: startRowCol.col},
         this.speedX = 0,
         this.speedY = 0,
         this.image = image,
         this.imageFlip = imageFlip,
-        this.flip = false;
+        this.flip = false,
         this.hp = hp,
         this.exp = exp,
         this.attack = attack,
@@ -94,52 +93,125 @@ class Hero {
             }
         }
         if (this.flip === true){
-            ctx.drawImage(this.imageFlip,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize*scale,heroSize*scale);
+            ctx.drawImage(this.imageFlip,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize,heroSize);
         }else{
-            ctx.drawImage(this.image,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize*scale,heroSize*scale);
+            ctx.drawImage(this.image,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize,heroSize);
         }
-        
+    };
+    moveDown(){
+        player.state = player.states.walk;
+        player.speedY = playerSpeed*-1;
+        player.walkedDistance.y += player.speedY;
+        if(player.walkedDistance.y != 0 && player.walkedDistance.y%(tileSize*scale-player.speedY) ===0){
+            player.walkedDistance.y = 0;
+            player.walk = false;
+            player.speedY = 0;
+            player.state = player.states.idle;
+        }
+
+    };
+    moveUp(){
+
+        player.state = player.states.walk;
+        player.speedY = playerSpeed;
+        player.walkedDistance.y += player.speedY;
+        if(player.walkedDistance.y != 0 && player.walkedDistance.y%(tileSize*scale+player.speedY) ===0){
+            player.walkedDistance.y = 0;
+            player.walk = false;
+            player.speedY = 0;
+            player.state = player.states.idle;
+        }
+
+    };
+    moveLeft(){
+        player.state = player.states.walk;
+        player.speedX = playerSpeed;
+        player.walkedDistance.x += player.speedX;
+        if(player.walkedDistance.x != 0 && player.walkedDistance.x%(tileSize*scale+player.speedX) ===0){
+            player.walkedDistance.x = 0;
+            player.walk = false;
+            player.speedX = 0;
+            player.state = player.states.idle;
+        }
+    };
+    moveRight(){
+
+        player.state = player.states.walk;
+        player.speedX = playerSpeed*-1;
+        player.walkedDistance.x += player.speedX;
+        if(player.walkedDistance.x != 0 && player.walkedDistance.x%(tileSize*scale-player.speedX) ===0){
+            player.walkedDistance.x = 0;
+            player.walk = false;
+            player.speedX = 0;
+            player.state = player.states.idle;
+        }
     }
 }
+
+const player = new Hero(100, 0, 3, heroSpriteSheet, heroSpriteSheetFlip);
 
 //=================== MAP ======================
 //==============================================
 //==============================================
 const mapView = [];
 const mapWorld = [];
+const tiles = {
+    black: {row: 0, col:20},
+    floorOneOne : {row:0, col:0},
+    void: {row:0, col:3}
+};
+
+const tileType = {
+    wall: "wall",
+    floor: "floor",
+    void: "void"
+}
 
 for(let i = 0; i < worldHeight; i++){
     let tempArray = [];
     for(let j = 0; j < worldWidth; j++){
         let x = j*tileSize*scale;
         let y = i*tileSize*scale;
-        if(i === 1){
-            tempArray.push({row:2, col:0, x:x,y:y});
-        }else if(j===1){
-            tempArray.push({row:2, col:0, x:x,y:y});
-        }else if(i === 10 && j === 10){
-            tempArray.push({row:3, col:0, x:x,y:y});
+        if(i === 0 && j ===0){
+            tempArray.push({tile:tiles.floorOneOne,type:tileType.wall,x:x,y:y});
+        }else if(i < 10 || i > worldHeight - 10){
+            tempArray.push({tile:tiles.void,type:tileType.wall,x:x,y:y});
+        }else if(j < 15 || j > worldWidth -15){
+            tempArray.push({tile:tiles.void, type:tileType.wall,x:x,y:y});
+        }else if(i === 11 && j === 17){
+            tempArray.push({tile:tiles.void,type:tileType.wall, x:x,y:y});
+        }else if(i === 20 && j === 20){
+            tempArray.push({tile:tiles.void,type:tileType.wall, x:x,y:y});
         }else{
-            tempArray.push({row:0, col:0,x:x,y:y});
+            tempArray.push({tile:tiles.void,type:tileType.floor,x:x,y:y});
         }
     }
     mapWorld.push(tempArray);
 }
 
-for(let i = 0; i < viewHeight; i++){
-    mapView.push([]);
-    for(let j = 0; j < viewWidth; j++){
-        let row = i+1;
-        let col = j+1;
-        console.log("col " + col);
-        let x = j*tileSize*scale;
-        let y = i*tileSize*scale;
-        console.log(mapWorld[row]);
-        mapView[i].push(mapWorld[row][col]);
-        mapView[i][j].x = x;
-        mapView[i][j].y = y;
-    } 
+function updateMapView(xOffSet, yOffSet){
+    if(mapView.length > 0){
+        for(let i = 0, size = mapView.length; i < size; i++){
+            mapView.pop();
+        }
+    }
+    let posX = xOffSet > 0 ? xOffSet : 0;
+    let posY = yOffSet > 0 ? yOffSet : 0;
+    for(let i = 0; i < viewHeight; i++){
+        mapView.push([]);
+        for(let j = 0; j < viewWidth; j++){
+            let row = i + posY;
+            let col = j + posX;
+            let x = j*tileSize*scale;
+            let y = i*tileSize*scale;
+            mapView[i].push(mapWorld[row][col]);
+
+            mapView[i][j].x = x;
+            mapView[i][j].y = y;
+        } 
+    }
 }
+updateMapView();
 
 // for(let i = 0; i < viewHeight; i++){
 //     let tempArray = [];
@@ -154,9 +226,60 @@ for(let i = 0; i < viewHeight; i++){
 //     } 
 //     mapView.push(tempArray);
 // }
-console.log(mapView);
 
-const player = new Hero(100, 0, 3, heroSpriteSheet, heroSpriteSheetFlip);
+function checkNextTile(){
+    let nextRow = player.posRowCol.row;
+    let nexCol = player.posRowCol.col;
+
+    if(player.direction === player.directions.right){
+        nexCol+=1;
+    }else if(player.direction === player.directions.left){
+        nexCol-=1;
+    }else if(player.direction === player.directions.up){
+        nextRow-=1;
+    }else if(player.direction === player.directions.down){
+        nextRow+=1;
+    }
+
+    if(mapWorld[nextRow][nexCol].type === tileType.wall){
+        if(player.direction === player.directions.left){
+            player.speedX-=playerSpeed;
+        }else if(player.direction === player.directions.right){
+            player.speedX+=playerSpeed;
+        }else if(player.direction === player.directions.up){
+            player.speedY-=playerSpeed;
+        }else if(player.direction === player.directions.down){
+            player.speedY+=playerSpeed;
+        }
+    }
+}
+
+function checkNextTile(){
+    let nextRow = 10;
+    let nexCol = 15;
+
+    if(player.direction === player.directions.right){
+        nexCol+=1;
+    }else if(player.direction === player.directions.left){
+        nexCol-=1;
+    }else if(player.direction === player.directions.up){
+        nextRow-=1;
+    }else if(player.direction === player.directions.down){
+        nextRow+=1;
+    }
+
+    if(mapView[nextRow][nexCol].type === tileType.wall){
+        if(player.direction === player.directions.left){
+            player.speedX-=playerSpeed;
+        }else if(player.direction === player.directions.right){
+            player.speedX+=playerSpeed;
+        }else if(player.direction === player.directions.up){
+            player.speedY-=playerSpeed;
+        }else if(player.direction === player.directions.down){
+            player.speedY+=playerSpeed;
+        }
+    }
+}
 
 function draw(){
     window.requestAnimationFrame(draw);
@@ -165,43 +288,38 @@ function draw(){
     if(delta > interval){
         then = now - (delta % interval)
         ctx.clearRect(0,0,canvas.width, canvas.height);
+
+        if(player.state === player.states.walk){
+           //checkNextTile();
+        }
+
+        if(player.walk === true && player.direction === player.directions.right){
+            player.moveRight();
+        }else if(player.walk === true && player.direction === player.directions.left){
+            player.moveLeft();
+        }else if(player.walk === true && player.direction === player.directions.up){
+            player.moveUp();
+        }else if(player.walk === true && player.direction === player.directions.down){
+            player.moveDown();
+        }
+        // if(player.state === player.states.walk){
+        //     mapView[0][0].y += player.speedY;
+        // }
         for(let i = 0; i < mapView[0].length; i++){
             for(let j = 0; j < mapView.length; j++){
                 if(player.state === player.states.walk){
                     mapView[j][i].x += player.speedX;
-                    mapView[j][i].y += player.speedY; 
-                }
+                    mapView[j][i].y += player.speedY;  
+               }
                 if(mapView[j][i].col !== null){
-                    ctx.drawImage(tileMap,mapView[j][i].col*tileSize,mapView[j][i].row*tileSize,tileSize,tileSize,mapView[j][i].x,mapView[j][i].y,tileSize*scale,tileSize*scale);
+                    ctx.drawImage(tileMap,mapView[j][i].tile.col*tileSize,mapView[j][i].tile.row*tileSize,tileSize,tileSize,mapView[j][i].x,mapView[j][i].y,tileSize*scale,tileSize*scale);
                 }
                 
             }
-        };
+        }
 
-        if(player.speedX !== 0){
-            player.worldPos.x += player.speedX;
-            if(player.worldPos.x % 30 === 0){
-                console.log("Move Map");
-            }
-            
-        }
-        if(player.speedY !== 0){
-            player.worldPos.y += player.speedY;
-            if(player.worldPos.y % 30 === 0){
-                console.log("Move Map");
-            }
-        }
-        if(player.speedX === 0 && player.speedY === 0){
-            player.state = player.states.idle;
-        }else if(player.speedX > 0){
-            player.direction = player.directions.left;
-        }else if(player.speedX < 0){
-            player.direction = player.directions.right;
-        }else if(player.speedY < 0){
-            player.direction = player.directions.down;
-        }else if(player.speedY > 0){
-            player.direction = player.directions.up;
-        }
+        
+        
 
         switch(player.state){
             case player.states.idle:
@@ -210,10 +328,8 @@ function draw(){
                 }else{
                     player.anim(ctx, player.idle, interval, false);
                 }
-                
                 break;
             case player.states.walk:
-                console.log(player.direction);
                 switch(player.direction){
                     case player.directions.left:
                         player.flip = true;
@@ -241,55 +357,51 @@ function draw(){
 
 draw();
 
-function keyPressed(e){
-    console.log("key pressed" + e.code);
-    switch((e.code).toLowerCase()){
-        case 'keyw':
-            player.speedY = playerSpeed;
-            player.state = player.states.walk;
-            console.log("walkUp");
-            break;
-        case 'keys':
-            player.speedY = playerSpeed*-1;
-            player.state = player.states.walk;
-            console.log("walkDown");
-            break;
-        case 'keya':
-            player.speedX = playerSpeed;
-            player.state = player.states.walk;
-            console.log("walkLeft");
-            break;
-        case 'keyd':
-            player.speedX = playerSpeed*-1;
-            player.state = player.states.walk;
-            console.log('walkRight');
-            break;
-        default:
-            console.log('default');
-            break;
-    }
-}
-
 function keyReleased(e){
-    console.log("key relased" + e.code);
-    switch((e.code).toLowerCase()){
-        case 'keyw':
-            player.speedY = 0;
-            break;
-        case 'keys':
-            player.speedY = 0;
-            break;
-        case 'keya':
-            player.speedX = 0;
-            break;
-        case 'keyd':
-            player.speedX = 0;
-            break;
-        default:
-            console.log('default');
-            break;
+    //console.log("key pressed" + e.code);
+    if((e.code).toLowerCase() === 'keyw'){
+        if(player.walk === false){
+            player.walk = true;
+            player.direction = player.directions.up;
+        }
+    }else if((e.code).toLowerCase() === 'keys'){
+        if(player.walk === false){
+            player.walk = true;
+            player.direction = player.directions.down;
+        }
+    }else if((e.code).toLowerCase() === 'keya'){
+        if(player.walk === false){
+            player.walk = true;
+            player.direction = player.directions.left;
+        }
+    }else if((e.code).toLowerCase() === 'keyd'){
+        if(player.walk === false){
+            player.walk = true;
+            player.direction = player.directions.right;
+        }
     }
 }
 
-document.addEventListener('keydown', keyPressed);
+// function keyReleased(e){
+//     console.log("key relased" + e.code);
+//     switch((e.code).toLowerCase()){
+//         case 'keyw':
+//             //player.walk = false;
+//             break;
+//         case 'keys':
+//             //player.walk = false;
+//             break;
+//         case 'keya':
+//             //player.walk = false;
+//             break;
+//         case 'keyd':
+//             //player.walk = false;
+//             break;
+//         default:
+//             console.log('default');
+//             break;
+//     }
+// }
+
+//document.addEventListener('keypress', keyPressed);
 document.addEventListener('keyup', keyReleased);
