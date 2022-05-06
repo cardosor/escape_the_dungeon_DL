@@ -9,7 +9,6 @@ const startRowCol = {row:Math.floor(viewHeight/2),col:Math.floor(viewWidth/2)};
 const mapSize = {width: worldWidth*tileSize*scale, height: worldHeight*tileSize*scale};
 const worldRowCol = {row: 0, col:0};
 const walkedDistance = {x:0, y:0};
-const walkedDistance2 = {x:0, y:0};
 canvas.setAttribute("height",(tileSize*scale)*viewHeight);
 canvas.setAttribute("width",(tileSize*scale)*viewWidth);
 
@@ -48,7 +47,6 @@ class Hero {
         this.states = {
             idle: 'idle',
             walk: 'walk',
-            stop: 'stop',
             attack:'attack',
             hit: 'hit'
         }
@@ -60,18 +58,15 @@ class Hero {
             down: 'down'
         }
         this.direction = this.directions.right,
-        this.walk = false,
-        this.completeWalk = false,
-        this.walkedDistance = {x:0, y:0},
+        this.x = canvasMiddle.x-(heroSize/2),
+        this.y = canvasMiddle.y-(heroSize/2),
         this.worldPos = {x:startRowCol.row*tileSize*scale, y:startRowCol.col*tileSize*scale},
         this.posRowCol = {row: startRowCol.row, col: startRowCol.col},
-        this.x =this.posRowCol.col*tileSize*scale+(tileSize*scale/2-heroSize/scale), //15*tileSize*scale,
-        this.y =this.posRowCol.row*tileSize*scale+(tileSize*scale/4 -heroSize/scale), //10*tileSize*scale,
         this.speedX = 0,
         this.speedY = 0,
         this.image = image,
         this.imageFlip = imageFlip,
-        this.flip = false,
+        this.flip = false;
         this.hp = hp,
         this.exp = exp,
         this.attack = attack,
@@ -98,106 +93,6 @@ class Hero {
         }else{
             ctx.drawImage(this.image,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize,heroSize);
         }
-    };
-    moveDown(){
-        if(canWalk()){
-            player.state = player.states.walk;
-            player.speedY = playerSpeed*-1;
-            player.walkedDistance.y += player.speedY;
-            if(player.walkedDistance.y != 0 && player.walkedDistance.y%(tileSize*scale-player.speedY) ===0){
-                player.walkedDistance.y = 0;
-                player.speedY = 0;
-                player.posRowCol.row++;
-                worldRowCol.row++;
-                if(player.posRowCol.row > 9){
-                    updateMapView(worldRowCol.col,worldRowCol.row);
-                }
-                if(player.completeWalk === true){
-                    player.completeWalk = false;
-                    player.walk = false;
-                    player.state = player.states.idle;
-                }
-            }
-        }else{
-            player.completeWalk = false;
-            player.walk = false;
-            player.state = player.states.idle;
-        }
-
-    };
-    moveUp(){
-        if(canWalk()){
-            player.state = player.states.walk;
-            player.speedY = playerSpeed;
-            player.walkedDistance.y += player.speedY;
-            if(player.walkedDistance.y != 0 && player.walkedDistance.y%(tileSize*scale+player.speedY) ===0){
-                player.walkedDistance.y = 0;
-                player.speedY = 0;
-                player.posRowCol.row--;
-                worldRowCol.row--;
-                if(player.posRowCol.row > 9){
-                    updateMapView(worldRowCol.col,worldRowCol.row);
-                } 
-                if(player.completeWalk === true){
-                    player.completeWalk = false;
-                    player.walk = false;
-                    player.state = player.states.idle;
-                }
-            }
-        }else{
-            player.completeWalk = false;
-            player.walk = false;
-            player.state = player.states.idle;
-        }
-    };
-    moveLeft(){
-        if(canWalk()){
-            player.state = player.states.walk;
-            player.speedX = playerSpeed;
-            player.walkedDistance.x += player.speedX;
-            if(player.walkedDistance.x != 0 && player.walkedDistance.x%(tileSize*scale+player.speedX) ===0){
-                player.walkedDistance.x = 0;
-                player.speedX = 0;
-                player.posRowCol.col--;
-                worldRowCol.col--;
-                if(player.posRowCol.col > 14){
-                    updateMapView(worldRowCol.col,worldRowCol.row);
-                }      
-                if(player.completeWalk === true){
-                    player.completeWalk = false;
-                    player.walk = false;
-                    player.state = player.states.idle;
-                }
-            }
-        }else{
-            player.walk = false;
-            player.state = player.states.idle;
-        }
-    };
-    moveRight(){
-        if(canWalk()){
-            player.state = player.states.walk;
-            player.speedX = playerSpeed*-1;
-            player.walkedDistance.x += player.speedX;
-            if(player.walkedDistance.x != 0 && player.walkedDistance.x%(tileSize*scale-player.speedX) ===0){
-                player.walkedDistance.x = 0;
-                player.speedX = 0;
-                player.posRowCol.col++;
-                worldRowCol.col++;
-                if(player.posRowCol.col > 14){
-                    updateMapView(worldRowCol.col,worldRowCol.row);
-                } 
-                if(player.completeWalk === true){
-                    player.completeWalk = false;
-                    player.walk = false;
-                    player.state = player.states.idle;
-                }
-                
-            }
-        }else{
-            player.walk = false;
-            player.state = player.states.idle;
-        }
         
     }
 }
@@ -212,7 +107,7 @@ const mapWorld = [];
 const tiles = {
     black: {row: 0, col:20},
     floorOneOne : {row:0, col:0},
-    void: {row:0, col:3}
+    void: {row:0, col:15}
 };
 
 const tileType = {
@@ -226,22 +121,21 @@ for(let i = 0; i < worldHeight; i++){
     for(let j = 0; j < worldWidth; j++){
         let x = j*tileSize*scale;
         let y = i*tileSize*scale;
-        if(i === 10 && j === 15){
-            tempArray.push({tile:tiles.floorOneOne,type:tileType.floor,x:x,y:y});
-        }else if(i < 10 || i > worldHeight - 10){
-            tempArray.push({tile:tiles.void,type:tileType.wall,x:x,y:y});
+        if(i < 10 || i > worldHeight - 10){
+            tempArray.push({tile:tiles.black,type:tileType.wall,x:x,y:y});
         }else if(j < 15 || j > worldWidth -15){
-            tempArray.push({tile:tiles.void, type:tileType.wall,x:x,y:y});
+            tempArray.push({tile:tiles.black, type:tileType.wall,x:x,y:y});
         }else if(i === 11 && j === 17){
-            tempArray.push({tile:tiles.void,type:tileType.wall, x:x,y:y});
-        }else if(i === 15 && j === 19){
-            tempArray.push({tile:tiles.void,type:tileType.wall, x:x,y:y});
+            tempArray.push({tile:tiles.black,type:tileType.wall, x:x,y:y});
+        }else if(i === 15 && j === 25){
+            tempArray.push({tile:tiles.black,type:tileType.wall, x:x,y:y});
         }else{
             tempArray.push({tile:tiles.floorOneOne,type:tileType.floor,x:x,y:y});
         }
     }
     mapWorld.push(tempArray);
 }
+//console.log(mapWorld);
 
 function updateMapView(xOffSet, yOffSet){
     if(mapView.length > 0){
@@ -259,13 +153,13 @@ function updateMapView(xOffSet, yOffSet){
             let x = j*tileSize*scale;
             let y = i*tileSize*scale;
             mapView[i].push(mapWorld[row][col]);
-            mapView[i][j].x = x;
-            mapView[i][j].y = y;
-        }
+
+            mapView[i][j].x = x + walkedDistance.x;
+            mapView[i][j].y = y + walkedDistance.y;
+        } 
     }
 }
 updateMapView();
-
 
 // for(let i = 0; i < viewHeight; i++){
 //     let tempArray = [];
@@ -308,9 +202,10 @@ function checkNextTile(){
     }
 }
 
-function canWalk(){
+function checkNextTile(){
     let nextRow = 10;
     let nexCol = 15;
+
     if(player.direction === player.directions.right){
         nexCol+=1;
     }else if(player.direction === player.directions.left){
@@ -320,13 +215,17 @@ function canWalk(){
     }else if(player.direction === player.directions.down){
         nextRow+=1;
     }
-    console.log(player.direction);
-    console.log(mapView[nextRow][nexCol].type)
 
-    if(mapView[nextRow][nexCol].type === tileType.floor){
-        return true;
-    }else{
-        return false;
+    if(mapView[nextRow][nexCol].type === tileType.wall){
+        if(player.direction === player.directions.left){
+            player.speedX-=playerSpeed;
+        }else if(player.direction === player.directions.right){
+            player.speedX+=playerSpeed;
+        }else if(player.direction === player.directions.up){
+            player.speedY-=playerSpeed;
+        }else if(player.direction === player.directions.down){
+            player.speedY+=playerSpeed;
+        }
     }
 }
 
@@ -339,38 +238,45 @@ function draw(){
         ctx.clearRect(0,0,canvas.width, canvas.height);
 
         if(player.state === player.states.walk){
-           //checkNextTile();
+            checkNextTile();
+        }
+        
+        if(player.speedX !== 0){
+            player.worldPos.x += player.speedX;
+            walkedDistance.x += player.speedX;
+        }
+        if(player.speedY !== 0){
+            player.worldPos.y += player.speedY;
+            walkedDistance.y += player.speedY;
+        }
+        console.log(walkedDistance.x);
+        if(player.speedX === 0 && player.speedY === 0){
+            player.state = player.states.idle;
+        }else if(player.speedX > 0){
+            player.direction = player.directions.left;
+        }else if(player.speedX < 0){
+            player.direction = player.directions.right;
+        }else if(player.speedY < 0){
+            player.direction = player.directions.down;
+        }else if(player.speedY > 0){
+            player.direction = player.directions.up;
         }
 
-        if(player.walk === true && player.direction === player.directions.right){
-            player.moveRight();
-        }else if(player.walk === true && player.direction === player.directions.left){
-            player.moveLeft();
-        }else if(player.walk === true && player.direction === player.directions.up){
-            player.moveUp();
-        }else if(player.walk === true && player.direction === player.directions.down){
-            player.moveDown();
-        }
-        // if(player.state === player.states.walk){
-        //     mapView[0][0].x += player.speedX;
-        //     mapView[0][1].x += player.speedX;
-        //     mapView[0][2].x += player.speedX;
-        //     mapView[0][3].x += player.speedX;
-        // }
+        
+
         for(let i = 0; i < mapView[0].length; i++){
             for(let j = 0; j < mapView.length; j++){
                 if(player.state === player.states.walk){
                     mapView[j][i].x += player.speedX;
-                    mapView[j][i].y += player.speedY;  
+                    mapView[j][i].y += player.speedY;   
                }
                 if(mapView[j][i].col !== null){
                     ctx.drawImage(tileMap,mapView[j][i].tile.col*tileSize,mapView[j][i].tile.row*tileSize,tileSize,tileSize,mapView[j][i].x,mapView[j][i].y,tileSize*scale,tileSize*scale);
                 }
                 
             }
-        }
+        };
 
-        
         
 
         switch(player.state){
@@ -382,6 +288,7 @@ function draw(){
                 }
                 break;
             case player.states.walk:
+                console.log(player.direction);
                 switch(player.direction){
                     case player.directions.left:
                         player.flip = true;
@@ -403,6 +310,47 @@ function draw(){
             default:
                 break;
         }
+
+        if(player.state === player.states.walk){
+            let moveMapSides = false;
+            let moveMapUpDown = false;
+            if(walkedDistance.x !== 0 && walkedDistance.x%(tileSize*scale) === 0){
+                moveMapSides = true;
+                walkedDistance.x = 0;
+            }
+            if(walkedDistance.y !== 0 && walkedDistance.y%(tileSize*scale) === 0){
+                moveMapUpDown = true;
+                walkedDistance.y = 0;
+            }
+            
+            if(moveMapSides === true){
+                if(player.direction === player.directions.left){
+                    player.posRowCol.col--;
+                    worldRowCol.col--;
+                }else if(player.direction === player.directions.right){
+                    player.posRowCol.col++;
+                    worldRowCol.col++;
+                }
+            }
+            if(moveMapUpDown === true){
+                if(player.direction === player.directions.up){
+                    player.posRowCol.row--;
+                    worldRowCol.row--;
+                }else if(player.direction === player.directions.down){
+                    player.posRowCol.row++;
+                    worldRowCol.row++;
+                }
+            }
+
+            if(moveMapSides === true){
+                moveMapSides = false;
+                updateMapView(worldRowCol.col,worldRowCol.row);
+            }else if(moveMapUpDown === true){
+                moveMapUpDown = false;
+                updateMapView(worldRowCol.col, worldRowCol.row);
+            }
+                
+        }
         
     }  
 }
@@ -411,43 +359,58 @@ draw();
 
 function keyPressed(e){
     //console.log("key pressed" + e.code);
+    player.speedY = 0;
+    player.speedX = 0;
     if((e.code).toLowerCase() === 'keyw'){
-        if(player.walk === false){
-            player.walk = true;
-            player.direction = player.directions.up;
-        }
+        player.speedY = playerSpeed;
+        player.state = player.states.walk;
     }else if((e.code).toLowerCase() === 'keys'){
-        if(player.walk === false){
-            player.walk = true;
-            player.direction = player.directions.down;
-        }
+        player.speedY = playerSpeed*-1;
+        player.state = player.states.walk;
     }else if((e.code).toLowerCase() === 'keya'){
-        if(player.walk === false){
-            player.walk = true;
-            player.direction = player.directions.left;
-        }
+        player.speedX = playerSpeed;
+        player.state = player.states.walk;
     }else if((e.code).toLowerCase() === 'keyd'){
-        if(player.walk === false){
-            player.walk = true;
-            player.direction = player.directions.right;
-        }
+        player.speedX = playerSpeed*-1;
+        player.state = player.states.walk;
     }
+    // switch((e.code).toLowerCase()){
+    //     case 'keyw':
+    //         player.speedY = playerSpeed;
+    //         player.state = player.states.walk;
+    //         break;
+    //     case 'keys':
+    //         player.speedY = playerSpeed*-1;
+    //         player.state = player.states.walk;
+    //         break;
+    //     case 'keya':
+    //         player.speedX = playerSpeed;
+    //         player.state = player.states.walk;
+    //         break;
+    //     case 'keyd':
+    //         player.speedX = playerSpeed*-1;
+    //         player.state = player.states.walk;
+    //         break;
+    //     default:
+    //         console.log('default');
+    //         break;
+    // }
 }
 
 function keyReleased(e){
     console.log("key relased" + e.code);
     switch((e.code).toLowerCase()){
         case 'keyw':
-            player.completeWalk = true;
+            player.speedY = 0;
             break;
         case 'keys':
-            player.completeWalk = true;
+            player.speedY = 0;
             break;
         case 'keya':
-            player.completeWalk = true;
+            player.speedX = 0;
             break;
         case 'keyd':
-            player.completeWalk = true;
+            player.speedX = 0;
             break;
         default:
             console.log('default');
