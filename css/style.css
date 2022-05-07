@@ -9,7 +9,7 @@ body{
 
 .game-container{
     display: grid;
-    grid-template-columns: 1fr 5fr ;
+    grid-template-columns:1fr 5fr;
     grid-template-rows: 15vh 70vh 15vh;
     grid-template-areas: 
     "title title"
@@ -21,11 +21,13 @@ body{
 .title{
     grid-area: title;
     background-color: red;
+    z-index: 100;
 }
 
 .HUD{
     grid-area: HUD;
     background-color: blue;
+    z-index: 100;
 }
 
 .canvas-container{
@@ -38,6 +40,7 @@ body{
 .footer{
     grid-area:footer;
     background-color: aqua;
+    z-index: 100;
 }
 
 #gameCanvas {

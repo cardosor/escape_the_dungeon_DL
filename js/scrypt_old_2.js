@@ -1,7 +1,7 @@
 var canvas = document.querySelector('#gameCanvas');
 const tileSize = 16;
 const viewWidth = 30;
-const viewHeight = 20;
+const viewHeight = 15;
 const scale = 2;
 const worldWidth = viewWidth * 4;
 const worldHeight = viewHeight * 4;
@@ -24,9 +24,6 @@ let delta;
 
 const ctx = canvas.getContext('2d');
 
-ctx.fillStyle = "#FF0000";
-ctx.fillRect(0, 0, 150, 75);
-
 const heroSpriteSheet = new Image(192, 528);
 heroSpriteSheet.src = 'img/chara_hero.png';
 const heroSpriteSheetFlip = new Image(192, 528);
@@ -34,41 +31,6 @@ heroSpriteSheetFlip.src = 'img/chara_hero_flip.png';
 
 const tileMap = new Image(320,384);
 tileMap.src = 'img/tiles_dungeon.png';
-
-const mapDataImg = new Image(120,80);
-mapDataImg.src = 'img/map.png';
-const mapDataImgLayer2 = new Image(120,80);
-mapDataImgLayer2.src = 'img/map1.png';
-
-
-const mapData = [[]];
-const mapDataLayer2 = [[]];
-mapDataImg.onload = function() {
-    let mapDataRaw = null;
-    let mapDataRawLayer2 = null;
-    ctx.drawImage(mapDataImg,0,0);
-    mapDataRaw = ctx.getImageData(0, 0, 120, 80);
-    console.log(mapDataRaw.data.length);
-    console.log(mapDataRaw.data.length/4);
-    console.log(mapDataRaw.data.length/4/120);
-    let row = 0;
-    for (var i = 0, n = mapDataRaw.data.length; i < n; i += 4) {
-        if(i !== 0 && i%480 === 0){
-            mapData.push([]);
-            row++;
-        }
-        let r = mapDataRaw.data[i];
-        let g = mapDataRaw.data[i+1];
-        let b = mapDataRaw.data[i+2];
-        mapData[row].push({r:r, g:g, b:b});
-    }
-    console.log(mapData[0][0]);
-    createWorldMap(mapData);
-    updateMapView();
-    draw();
-}
-
-
 
 const heroSize = 48*scale;
 
@@ -103,8 +65,8 @@ class Hero {
         this.walkedDistance = {x:0, y:0},
         this.worldPos = {x:startRowCol.row*tileSize*scale, y:startRowCol.col*tileSize*scale},
         this.posRowCol = {row: startRowCol.row, col: startRowCol.col},
-        this.x =this.posRowCol.col*tileSize*scale+(tileSize*scale/2-heroSize/2), //15*tileSize*scale,
-        this.y =this.posRowCol.row*tileSize*scale+(tileSize*scale/4 -heroSize/2), //10*tileSize*scale,
+        this.x =this.posRowCol.col*tileSize*scale+(tileSize*scale/2-heroSize/scale), //15*tileSize*scale,
+        this.y =this.posRowCol.row*tileSize*scale+(tileSize*scale/4 -heroSize/scale), //10*tileSize*scale,
         this.speedX = 0,
         this.speedY = 0,
         this.image = image,
@@ -157,9 +119,9 @@ class Hero {
                 }
             }
         }else{
-                player.completeWalk = false;
-                player.walk = false;
-                player.state = player.states.idle;
+            player.completeWalk = false;
+            player.walk = false;
+            player.state = player.states.idle;
         }
 
     };
@@ -250,17 +212,7 @@ const mapWorld = [];
 const tiles = {
     black: {row: 0, col:20},
     floorOneOne : {row:0, col:0},
-    void: {row:0, col:3},
-    wallLTR: {row:9, col:1},
-    wallLTR: {row:9, col:2}, //wall L top right
-    wallLTL: {row:9, col:1}, //wall L top left
-    wallLBR: {row:10, col:2}, //wall L Bottom right
-    wallLBL: {row:10, col:1}, //wall L Bottom left
-    wallSEB: {row:11, col:0}, //wall side end bottom
-    doorV0 : {row:10, col:15}, //Door Vertical
-    doorV1 : {row:11, col:15}, //Door Vertical
-    wallCenterTop:{row:9, col:4},
-    wallCenterSides:{row:10, col:0}
+    void: {row:0, col:3}
 };
 
 const tileType = {
@@ -269,65 +221,27 @@ const tileType = {
     void: "void"
 }
 
-function createWorldMap(data){
-    let testColorCol = 0;
-    let testColorRow = 0;
-    
-    console.log(data[testColorRow][testColorCol].r)
-    console.log(data[testColorRow][testColorCol].g)
-    console.log(data[testColorRow][testColorCol].b)
-    for(let i = 0; i < worldHeight; i++){
-        let tempArray = [];
-        for(let j = 0; j < worldWidth; j++){
-            let x = j*tileSize*scale;
-            let y = i*tileSize*scale;
-            let tile = tiles.floorOneOne;
-            let type = tileType.floor;
-            let r = data[i][j].r;
-            let g = data[i][j].g;
-            let b = data[i][j].b;
-            if(r === 0 && g === 0 && b === 0){
-                tile = tiles.black;
-                type = tileType.wall;
-            }else if(r === 254 && g === 126 && b === 126) {
-                tile = tiles.wallLTL;
-                type = tileType.wall;
-            }else if(r === 126 && g === 66 && b === 66) {
-                tile = tiles.wallLBL;
-                type = tileType.wall;
-            }else if(r === 127 && g === 255 && b === 127) {
-                tile = tiles.wallLTR;
-                type = tileType.wall;
-            }else if(r === 6 && g === 255 && b === 4) {
-                tile = tiles.wallLBR;
-                type = tileType.wall;
-            }else if(r === 255 && g === 255 && b === 127) {
-                tile = tiles.wallCenterTop;
-                type = tileType.wall;
-            }else if(r === 254 && g === 0 && b === 0) {
-                tile = tiles.wallCenterSides;
-                type = tileType.wall;
-            }else if(r === 126 && g === 126 && b === 0) {
-                tile = tiles.wallSEB;
-                type = tileType.wall;
-            }else if(r === 0 && g === 0 && b === 255) {
-                tile = tiles.doorV0;
-                type = tileType.wall;
-            }else if(r === 0 && g === 0 && b === 126) {
-                tile = tiles.doorV1;
-                type = tileType.wall;
-            }
-            else{
-                tile = tiles.floorOneOne;
-                type = tileType.floor;
-            }
-            tempArray.push({tile:tile,type:type,x:x,y:y});
+for(let i = 0; i < worldHeight; i++){
+    let tempArray = [];
+    for(let j = 0; j < worldWidth; j++){
+        let x = j*tileSize*scale;
+        let y = i*tileSize*scale;
+        if(i === 10 && j === 15){
+            tempArray.push({tile:tiles.floorOneOne,type:tileType.floor,x:x,y:y});
+        }else if(i < 10 || i > worldHeight - 10){
+            tempArray.push({tile:tiles.void,type:tileType.wall,x:x,y:y});
+        }else if(j < 15 || j > worldWidth -15){
+            tempArray.push({tile:tiles.void, type:tileType.wall,x:x,y:y});
+        }else if(i === 11 && j === 17){
+            tempArray.push({tile:tiles.void,type:tileType.wall, x:x,y:y});
+        }else if(i === 15 && j === 19){
+            tempArray.push({tile:tiles.void,type:tileType.wall, x:x,y:y});
+        }else{
+            tempArray.push({tile:tiles.floorOneOne,type:tileType.floor,x:x,y:y});
         }
-        mapWorld.push(tempArray);
     }
-    console.log(mapWorld);
+    mapWorld.push(tempArray);
 }
-
 
 function updateMapView(xOffSet, yOffSet){
     if(mapView.length > 0){
@@ -350,7 +264,22 @@ function updateMapView(xOffSet, yOffSet){
         }
     }
 }
+updateMapView();
 
+
+// for(let i = 0; i < viewHeight; i++){
+//     let tempArray = [];
+//     for(let j = 0; j < viewWidth; j++){
+//         let x = j*tileSize*scale;
+//         let y = i*tileSize*scale;
+//         if(i === 3 && j === 3){
+//             tempArray.push({row:3, col:0, x:x,y:y});
+//         }else{
+//             tempArray.push({row:0, col:0,x:x,y:y});
+//         }
+//     } 
+//     mapView.push(tempArray);
+// }
 
 function checkNextTile(){
     let nextRow = player.posRowCol.row;
@@ -409,6 +338,10 @@ function draw(){
         then = now - (delta % interval)
         ctx.clearRect(0,0,canvas.width, canvas.height);
 
+        if(player.state === player.states.walk){
+           //checkNextTile();
+        }
+
         if(player.walk === true && player.direction === player.directions.right){
             player.moveRight();
         }else if(player.walk === true && player.direction === player.directions.left){
@@ -418,7 +351,12 @@ function draw(){
         }else if(player.walk === true && player.direction === player.directions.down){
             player.moveDown();
         }
-
+        // if(player.state === player.states.walk){
+        //     mapView[0][0].x += player.speedX;
+        //     mapView[0][1].x += player.speedX;
+        //     mapView[0][2].x += player.speedX;
+        //     mapView[0][3].x += player.speedX;
+        // }
         for(let i = 0; i < mapView[0].length; i++){
             for(let j = 0; j < mapView.length; j++){
                 if(player.state === player.states.walk){
@@ -426,25 +364,7 @@ function draw(){
                     mapView[j][i].y += player.speedY;  
                }
                 if(mapView[j][i].col !== null){
-                    
                     ctx.drawImage(tileMap,mapView[j][i].tile.col*tileSize,mapView[j][i].tile.row*tileSize,tileSize,tileSize,mapView[j][i].x,mapView[j][i].y,tileSize*scale,tileSize*scale);
-                    
-                }
-                if(j === 17 && i === 5){
-                    ctx.drawImage(tileMap,tiles.doorV0.col*tileSize,tiles.doorV0.row*tileSize,tileSize,tileSize,17*tileSize*scale,5*tileSize*scale,tileSize*scale,tileSize*scale);
-                }
-                
-            }
-        }
-        for(let i = 0; i < mapView[0].length; i++){
-            for(let j = 0; j < mapView.length; j++){
-                if(player.state === player.states.walk){
-                    //mapView[j][i].x += player.speedX;
-                    //mapView[j][i].y += player.speedY;  
-               }
-                if(j === 17 && i === 5){
-
-                    ctx.drawImage(tileMap,tiles.doorV0.col*tileSize,tiles.doorV0.row*tileSize,tileSize,tileSize,17*tileSize*scale,5*tileSize*scale,tileSize*scale,tileSize*scale);
                 }
                 
             }
@@ -486,6 +406,8 @@ function draw(){
         
     }  
 }
+
+draw();
 
 function keyPressed(e){
     //console.log("key pressed" + e.code);
