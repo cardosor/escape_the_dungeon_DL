@@ -35,6 +35,7 @@ body{
     background-color: black;
     align-self: center;
     justify-self: center;
+    border: solid white;
 }
 
 .footer{

@@ -3,18 +3,14 @@ const tileSize = 16;
 const viewWidth = 30;
 const viewHeight = 20;
 const scale = 2;
+const heroSize = 48*scale;
 const worldWidth = viewWidth * 4;
 const worldHeight = viewHeight * 4;
 const startRowCol = {row:Math.floor(viewHeight/2),col:Math.floor(viewWidth/2)};
 const mapSize = {width: worldWidth*tileSize*scale, height: worldHeight*tileSize*scale};
 const worldRowCol = {row: 0, col:0};
-const walkedDistance = {x:0, y:0};
-const walkedDistance2 = {x:0, y:0};
 canvas.setAttribute("height",(tileSize*scale)*viewHeight);
 canvas.setAttribute("width",(tileSize*scale)*viewWidth);
-
-const canvasMiddle = {x:canvas.width/2, y:canvas.height/2}
-
 const playerSpeed = (16*scale)/8;
 const fps = 30;
 let now;
@@ -23,9 +19,6 @@ const interval = 1000/fps;
 let delta;
 
 const ctx = canvas.getContext('2d');
-
-ctx.fillStyle = "#FF0000";
-ctx.fillRect(0, 0, 150, 75);
 
 const heroSpriteSheet = new Image(192, 528);
 heroSpriteSheet.src = 'img/chara_hero.png';
@@ -39,18 +32,13 @@ const mapDataImg = new Image(120,80);
 mapDataImg.src = 'img/map.png';
 const mapDataImgLayer2 = new Image(120,80);
 mapDataImgLayer2.src = 'img/map1.png';
-
-
 const mapData = [[]];
 const mapDataLayer2 = [[]];
+
 mapDataImg.onload = function() {
     let mapDataRaw = null;
-    let mapDataRawLayer2 = null;
     ctx.drawImage(mapDataImg,0,0);
     mapDataRaw = ctx.getImageData(0, 0, 120, 80);
-    console.log(mapDataRaw.data.length);
-    console.log(mapDataRaw.data.length/4);
-    console.log(mapDataRaw.data.length/4/120);
     let row = 0;
     for (var i = 0, n = mapDataRaw.data.length; i < n; i += 4) {
         if(i !== 0 && i%480 === 0){
@@ -62,15 +50,29 @@ mapDataImg.onload = function() {
         let b = mapDataRaw.data[i+2];
         mapData[row].push({r:r, g:g, b:b});
     }
-    console.log(mapData[0][0]);
-    createWorldMap(mapData);
-    updateMapView();
-    draw();
+    mapDataImgLayer2.onload = function() {
+        let mapDataRawLayer2 = null;
+        ctx.drawImage(mapDataImgLayer2,0,0);
+        mapDataRawLayer2 = ctx.getImageData(0, 0, 120, 80);
+        let row = 0;
+        for (var i = 0, n = mapDataRawLayer2.data.length; i < n; i += 4) {
+            if(i !== 0 && i%480 === 0){
+                mapDataLayer2.push([]);
+                row++;
+            }
+            let r = mapDataRawLayer2.data[i];
+            let g = mapDataRawLayer2.data[i+1];
+            let b = mapDataRawLayer2.data[i+2];
+            mapDataLayer2[row].push({r:r, g:g, b:b});
+        }
+        createWorldMapLayer2(mapDataLayer2);
+        createWorldMap(mapData);
+        updateMapView();
+        updateMapViewLayer2();
+        draw();
+    }
+    
 }
-
-
-
-const heroSize = 48*scale;
 
 
 function getFrames(row, frames, size){
@@ -82,13 +84,14 @@ function getFrames(row, frames, size){
 }
 
 class Hero {
-    constructor(hp, exp, attack, image, imageFlip){
+    constructor(hp, exp, attackPoints, image, imageFlip){
         this.states = {
             idle: 'idle',
             walk: 'walk',
             stop: 'stop',
             attack:'attack',
-            hit: 'hit'
+            hit: 'hit',
+            action: 'action'
         }
         this.state = this.states.idle,
         this.directions = {
@@ -101,7 +104,6 @@ class Hero {
         this.walk = false,
         this.completeWalk = false,
         this.walkedDistance = {x:0, y:0},
-        this.worldPos = {x:startRowCol.row*tileSize*scale, y:startRowCol.col*tileSize*scale},
         this.posRowCol = {row: startRowCol.row, col: startRowCol.col},
         this.x =this.posRowCol.col*tileSize*scale+(tileSize*scale/2-heroSize/2), //15*tileSize*scale,
         this.y =this.posRowCol.row*tileSize*scale+(tileSize*scale/4 -heroSize/2), //10*tileSize*scale,
@@ -112,25 +114,34 @@ class Hero {
         this.flip = false,
         this.hp = hp,
         this.exp = exp,
-        this.attack = attack,
-        this.sizePixel = 48,
+        this.attackPoints = attackPoints,
         this.idle = {timeCounter:0, animTime:100, frame:0, frames: getFrames(0,[0,1,2,1],48)},
         this.idleFlip = {timeCounter:0, animTime:100, frame:0, frames: getFrames(0,[3,2,1,2],48)},
-        this.action = {timeCounter:0, animTime:100, frame:0, frames: getFrames(1,[0,1,2,1],48)},
+        this.actionAnim = {timeCounter:0, animTime:100, frame:0, frames: getFrames(1,[0,1,2,1],48)},
+        this.actionAnimFlip = {timeCounter:0, animTime:100, frame:0, frames: getFrames(1,[3,2,1,2],48)},
         this.walkDown = {timeCounter:0, animTime:100, frame:0, frames: getFrames(2,[0,1,2,3],48)},
         this.walkLeft = {timeCounter:0, animTime:100, frame:0, frames: getFrames(3,[3,2,1,0],48)},
         this.walkRight = {timeCounter:0, animTime:100, frame:0, frames: getFrames(3,[0,1,2,3],48)},
-        this.walkUp = {timeCounter:0, animTime:100, frame:0, frames: getFrames(4,[0,1,2,3],48)}
+        this.walkUp = {timeCounter:0, animTime:100, frame:0, frames: getFrames(4,[0,1,2,3],48)},
+        this.attackDown = {timeCounter:0, animTime:100, frame:0, frames: getFrames(5,[0,1,2,3],48)},
+        this.attackRight = {timeCounter:0, animTime:100, frame:0, frames: getFrames(6,[0,1,2,3],48)},
+        this.attackUp = {timeCounter:0, animTime:100, frame:0, frames: getFrames(7,[0,1,2,3],48)},
+        this.attackLeft = {timeCounter:0, animTime:100, frame:0, frames: getFrames(6,[3,2,1,0],48)}
     };
     anim(ctx, data, interval){
         data.timeCounter += interval;
         if(data.timeCounter > data.animTime){
             data.timeCounter = 0;
             data.frame++
-            if(data.frame === data.frames.length){
+            if(data.frame === data.frames.length){ 
+                if(player.state === player.states.attack ||
+                    player.state === player.states.action){
+                    player.state = player.states.idle;
+                }
                 data.frame = 0;
             }
         }
+        console.log(this.flip);
         if (this.flip === true){
             ctx.drawImage(this.imageFlip,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize,heroSize);
         }else{
@@ -149,6 +160,7 @@ class Hero {
                 worldRowCol.row++;
                 if(player.posRowCol.row > 9){
                     updateMapView(worldRowCol.col,worldRowCol.row);
+                    updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
                 }
                 if(player.completeWalk === true){
                     player.completeWalk = false;
@@ -175,6 +187,7 @@ class Hero {
                 worldRowCol.row--;
                 if(player.posRowCol.row > 9){
                     updateMapView(worldRowCol.col,worldRowCol.row);
+                    updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
                 } 
                 if(player.completeWalk === true){
                     player.completeWalk = false;
@@ -200,6 +213,7 @@ class Hero {
                 worldRowCol.col--;
                 if(player.posRowCol.col > 14){
                     updateMapView(worldRowCol.col,worldRowCol.row);
+                    updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
                 }      
                 if(player.completeWalk === true){
                     player.completeWalk = false;
@@ -224,6 +238,7 @@ class Hero {
                 worldRowCol.col++;
                 if(player.posRowCol.col > 14){
                     updateMapView(worldRowCol.col,worldRowCol.row);
+                    updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
                 } 
                 if(player.completeWalk === true){
                     player.completeWalk = false;
@@ -237,6 +252,27 @@ class Hero {
             player.state = player.states.idle;
         }
         
+    };
+    attack(){
+        checkAction();
+        if(player.direction === player.directions.up){
+            this.anim(ctx, this.attackUp, interval);
+        }else if(player.direction === player.directions.down){
+            this.anim(ctx, this.attackDown, interval);
+        }else if(player.direction === player.directions.left){
+            this.anim(ctx, this.attackLeft, interval);
+        }else if(player.direction === player.directions.right){
+            this.anim(ctx, this.attackRight, interval);
+        }
+    };
+    action(){
+        checkAction();
+        if(player.flip === true){
+            this.anim(ctx, this.actionAnimFlip, interval);
+        }else{
+            this.anim(ctx, this.actionAnim, interval);
+        }
+        
     }
 }
 
@@ -246,8 +282,11 @@ const player = new Hero(100, 0, 3, heroSpriteSheet, heroSpriteSheetFlip);
 //==============================================
 //==============================================
 const mapView = [];
+const mapViewLayer2 = [];
 const mapWorld = [];
+const mapWorldLayer2 = [];
 const tiles = {
+    nullTile:{row:null, col:null},
     black: {row: 0, col:20},
     floorOneOne : {row:0, col:0},
     void: {row:0, col:3},
@@ -260,14 +299,58 @@ const tiles = {
     doorV0 : {row:10, col:15}, //Door Vertical
     doorV1 : {row:11, col:15}, //Door Vertical
     wallCenterTop:{row:9, col:4},
-    wallCenterSides:{row:10, col:0}
+    wallCenterSides:{row:10, col:0},
+    chest1 : {row: 16, col: 14},
+    chest2 : {row: 16, col: 15},
+    vase1: {row:16, col:16},
+    vase2: {row:16, col:17},
 };
 
 const tileType = {
     wall: "wall",
     floor: "floor",
-    void: "void"
+    void: "void",
+    door: "door",
+    chest1: "chest1",
+    chest2: "chest2",
+    vase1: "vase1", // original vase
+    vase2: "vase2" // broken vase
 }
+const blockWalkItems = [tileType.wall, tileType.chest1, tileType.chest2, tileType.vase1,
+                        tileType.door]
+
+function createWorldMapLayer2(data){
+    for(let i = 0; i < worldHeight; i++){
+        let tempArray = [];
+        for(let j = 0; j < worldWidth; j++){
+            let x = j*tileSize*scale;
+            let y = i*tileSize*scale;
+            let tile = tiles.nullTile;
+            let type = null;
+            let r = data[i][j].r;
+            let g = data[i][j].g;
+            let b = data[i][j].b;
+            if(i === 0 && j === 0){
+                console.log(r);
+                console.log(g);
+                console.log(b);
+            }
+            if(r === 0 && g === 0 && b === 0){
+                tile = tiles.nullTile;
+                type = null;
+            }else if(r === 255 && g === 199 && b ===21){
+                tile = tiles.chest1;
+                type = tileType.chest1;
+            }else if(r === 183 && g === 121 && b ===87){
+                tile = tiles.vase1;
+                type = tileType.vase1;
+            }
+            tempArray.push({tile:tile,type:type,x:x,y:y});
+        }
+        mapWorldLayer2.push(tempArray);
+    }
+}
+
 
 function createWorldMap(data){
     let testColorCol = 0;
@@ -325,9 +408,29 @@ function createWorldMap(data){
         }
         mapWorld.push(tempArray);
     }
-    console.log(mapWorld);
 }
 
+function updateMapViewLayer2(xOffSet, yOffSet){
+    if(mapViewLayer2.length > 0){
+        for(let i = 0, size = mapViewLayer2.length; i < size; i++){
+            mapViewLayer2.pop();
+        }
+    }
+    let posX = xOffSet > 0 ? xOffSet : 0;
+    let posY = yOffSet > 0 ? yOffSet : 0;
+    for(let i = 0; i < viewHeight; i++){
+        mapViewLayer2.push([]);
+        for(let j = 0; j < viewWidth; j++){
+            let row = i + posY;
+            let col = j + posX;
+            let x = j*tileSize*scale;
+            let y = i*tileSize*scale;
+            mapViewLayer2[i].push(mapWorldLayer2[row][col]);
+            mapViewLayer2[i][j].x = x;
+            mapViewLayer2[i][j].y = y;
+        }
+    }
+}
 
 function updateMapView(xOffSet, yOffSet){
     if(mapView.length > 0){
@@ -344,42 +447,14 @@ function updateMapView(xOffSet, yOffSet){
             let col = j + posX;
             let x = j*tileSize*scale;
             let y = i*tileSize*scale;
+            
             mapView[i].push(mapWorld[row][col]);
             mapView[i][j].x = x;
             mapView[i][j].y = y;
         }
     }
 }
-
-
-function checkNextTile(){
-    let nextRow = player.posRowCol.row;
-    let nexCol = player.posRowCol.col;
-
-    if(player.direction === player.directions.right){
-        nexCol+=1;
-    }else if(player.direction === player.directions.left){
-        nexCol-=1;
-    }else if(player.direction === player.directions.up){
-        nextRow-=1;
-    }else if(player.direction === player.directions.down){
-        nextRow+=1;
-    }
-
-    if(mapWorld[nextRow][nexCol].type === tileType.wall){
-        if(player.direction === player.directions.left){
-            player.speedX-=playerSpeed;
-        }else if(player.direction === player.directions.right){
-            player.speedX+=playerSpeed;
-        }else if(player.direction === player.directions.up){
-            player.speedY-=playerSpeed;
-        }else if(player.direction === player.directions.down){
-            player.speedY+=playerSpeed;
-        }
-    }
-}
-
-function canWalk(){
+function checkAction(){
     let nextRow = 10;
     let nexCol = 15;
     if(player.direction === player.directions.right){
@@ -392,9 +467,56 @@ function canWalk(){
         nextRow+=1;
     }
     console.log(player.direction);
-    console.log(mapView[nextRow][nexCol].type)
+    console.log(mapViewLayer2[nextRow][nexCol])
+    console.log(mapViewLayer2[nextRow][nexCol].tile)
+    if(player.state === player.states.attack){
+        if(mapViewLayer2[nextRow][nexCol].type === tileType.vase1){
+            mapViewLayer2[nextRow][nexCol].tile = tiles.vase2;
+            mapViewLayer2[nextRow][nexCol].type = tileType.vase2;
+        }
+    }else if(player.state === player.states.action){
+        if(mapViewLayer2[nextRow][nexCol].type === tileType.chest1){
+            mapViewLayer2[nextRow][nexCol].tile = tiles.chest2;
+            mapViewLayer2[nextRow][nexCol].type = tileType.chest2;
+        }
+    }
+    
+
+    if(mapViewLayer2[nextRow][nexCol].type === tileType.floor){
+        return true;
+    }else{
+        return false;
+    }
+}
+
+function canWalk(){
+    let nextRow = 10;
+    let nexCol = 15;
+    if(player.direction === player.directions.right){
+        if(player.flip == true){
+            player.flip = false;
+            player.anim(ctx, player.idle, interval);
+        }
+        nexCol+=1;
+    }else if(player.direction === player.directions.left){
+        if(player.flip == false){
+            player.flip = true;
+            player.anim(ctx, player.idleFlip, interval);
+        }
+        
+        nexCol-=1;
+    }else if(player.direction === player.directions.up){
+        nextRow-=1;
+    }else if(player.direction === player.directions.down){
+        nextRow+=1;
+    }
 
     if(mapView[nextRow][nexCol].type === tileType.floor){
+        for(i = 0; i < blockWalkItems.length; i++){
+            if(mapViewLayer2[nextRow][nexCol].type === blockWalkItems[i]){
+                return false;
+            }
+        }
         return true;
     }else{
         return false;
@@ -419,46 +541,38 @@ function draw(){
             player.moveDown();
         }
 
-        for(let i = 0; i < mapView[0].length; i++){
-            for(let j = 0; j < mapView.length; j++){
+        for(let i = 0; i < mapView.length; i++){
+            for(let j = 0; j < mapView[0].length; j++){
                 if(player.state === player.states.walk){
-                    mapView[j][i].x += player.speedX;
-                    mapView[j][i].y += player.speedY;  
+                    mapView[i][j].x += player.speedX;
+                    mapView[i][j].y += player.speedY;  
                }
-                if(mapView[j][i].col !== null){
-                    
-                    ctx.drawImage(tileMap,mapView[j][i].tile.col*tileSize,mapView[j][i].tile.row*tileSize,tileSize,tileSize,mapView[j][i].x,mapView[j][i].y,tileSize*scale,tileSize*scale);
+                if(mapView[i][j].tile.col !== null){
+                    ctx.drawImage(tileMap,mapView[i][j].tile.col*tileSize,mapView[i][j].tile.row*tileSize,tileSize,tileSize,mapView[i][j].x,mapView[i][j].y,tileSize*scale,tileSize*scale);
                     
                 }
-                if(j === 17 && i === 5){
-                    ctx.drawImage(tileMap,tiles.doorV0.col*tileSize,tiles.doorV0.row*tileSize,tileSize,tileSize,17*tileSize*scale,5*tileSize*scale,tileSize*scale,tileSize*scale);
-                }
-                
             }
         }
-        for(let i = 0; i < mapView[0].length; i++){
-            for(let j = 0; j < mapView.length; j++){
+        for(let i = 0; i < mapViewLayer2.length; i++){
+            for(let j = 0; j < mapViewLayer2[0].length; j++){
                 if(player.state === player.states.walk){
-                    //mapView[j][i].x += player.speedX;
-                    //mapView[j][i].y += player.speedY;  
+                    mapViewLayer2[i][j].x += player.speedX;
+                    mapViewLayer2[i][j].y += player.speedY;  
                }
-                if(j === 17 && i === 5){
-
-                    ctx.drawImage(tileMap,tiles.doorV0.col*tileSize,tiles.doorV0.row*tileSize,tileSize,tileSize,17*tileSize*scale,5*tileSize*scale,tileSize*scale,tileSize*scale);
+                if(mapViewLayer2[i][j].tile.col !== null){
+                    ctx.drawImage(tileMap,mapViewLayer2[i][j].tile.col*tileSize,mapViewLayer2[i][j].tile.row*tileSize,tileSize,tileSize,mapView[i][j].x,mapViewLayer2[i][j].y,tileSize*scale,tileSize*scale);
+                    
                 }
-                
             }
-        }
-
-        
+        }     
         
 
         switch(player.state){
             case player.states.idle:
                 if(player.flip === true){
-                    player.anim(ctx, player.idleFlip, interval, false);
+                    player.anim(ctx, player.idleFlip, interval);
                 }else{
-                    player.anim(ctx, player.idle, interval, false);
+                    player.anim(ctx, player.idle, interval);
                 }
                 break;
             case player.states.walk:
@@ -469,16 +583,22 @@ function draw(){
                     break;
                     case player.directions.right:
                         player.flip = false;
-                        player.anim(ctx, player.walkRight, interval, false);
+                        player.anim(ctx, player.walkRight, interval);
                     break;
                     case player.directions.up:
-                        player.anim(ctx, player.walkUp, interval, false);
+                        player.anim(ctx, player.walkUp, interval);
                     break;
                     case player.directions.down:
-                        player.anim(ctx, player.walkDown, interval, false);
+                        player.anim(ctx, player.walkDown, interval);
                     break;
 
                 }
+                break;
+            case player.states.attack:
+                player.attack();
+                break;
+            case player.states.action:
+                player.action();
                 break;
             default:
                 break;
@@ -487,27 +607,42 @@ function draw(){
     }  
 }
 
+function isPerformingAction(){
+    if(player.state === player.states.attack ||
+        player.state === player.state.action){
+        return true;
+    }
+    return false;
+}
 function keyPressed(e){
     //console.log("key pressed" + e.code);
     if((e.code).toLowerCase() === 'keyw'){
-        if(player.walk === false){
+        if(player.walk === false && !isPerformingAction()){
             player.walk = true;
             player.direction = player.directions.up;
         }
     }else if((e.code).toLowerCase() === 'keys'){
-        if(player.walk === false){
+        if(player.walk === false && !isPerformingAction()){
             player.walk = true;
             player.direction = player.directions.down;
         }
     }else if((e.code).toLowerCase() === 'keya'){
-        if(player.walk === false){
+        if(player.walk === false && !isPerformingAction()){
             player.walk = true;
             player.direction = player.directions.left;
         }
     }else if((e.code).toLowerCase() === 'keyd'){
-        if(player.walk === false){
+        if(player.walk === false && !isPerformingAction()){
             player.walk = true;
             player.direction = player.directions.right;
+        }
+    }else if((e.code).toLowerCase() === 'space'){
+        if(player.walk === false && !isPerformingAction()){
+            player.state = player.states.attack;
+        }
+    }else if((e.code).toLowerCase() === 'keye'){
+        if(player.walk === false && !isPerformingAction()){
+            player.state = player.states.action;
         }
     }
 }
