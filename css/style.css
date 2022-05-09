@@ -1,3 +1,7 @@
+@font-face {
+    font-family: dungeon-font;
+    src: url(../font/BreatheFireIi-2z9W.ttf);
+ }
 * {
     margin: 0;
     padding: 0;
@@ -9,25 +13,95 @@ body{
 
 .game-container{
     display: grid;
-    grid-template-columns:1fr 5fr;
+    grid-template-columns:1fr 3fr;
     grid-template-rows: 15vh 70vh 15vh;
     grid-template-areas: 
     "title title"
     "HUD canvas-container"
     "footer footer";
-
 }
 
 .title{
     grid-area: title;
-    background-color: red;
+    background-image:url("../img/top_bg.jpg")  ;
+    background-size: cover;
+    background-position: center center;
+    text-align: center;
+    padding: 70px 0;
+    font-family: dungeon-font;
+    color: #ebebeb;
+    font-size: 2em;
     z-index: 100;
+
 }
 
 .HUD{
+    min-width: 350px;
     grid-area: HUD;
-    background-color: blue;
     z-index: 100;
+    margin-left: 20px;
+    display: inline;
+}
+.HUD_top{
+    height: 12vh;
+    display: flex;
+    flex-flow: column wrap;
+    row-gap: 10px;
+    align-content:center;
+    justify-content:center;
+}
+.HUD_items{
+    background-image:url("../img/ui/ui_01.PNG");
+    background-repeat: no-repeat;
+    background-size:cover;
+    background-position: center center;
+    height: 46vh;
+    padding: 5%;
+    font-family: dungeon-font;
+    color: #ebebeb;
+    font-size: 20px;
+    min-height: 600px;
+}
+#inventory{
+    width: 1fr;
+    height: 30vh;
+    background-color: black;
+    display: flex;
+    flex-wrap: wrap;
+    align-content:flex-start;
+    padding: 15px;
+    gap: 10px;
+}
+.item{
+    width: 50px;
+    height: 50px;
+    background-image:url("../img/ui/ui_02.PNG");
+    background-repeat: no-repeat;
+    background-size:cover;
+    background-position: center center;
+}
+.item:hover{
+    background-image:url("../img/ui/ui_03.PNG");
+}
+
+button{
+    background-image:url("../img/ui/ui_05.PNG");
+    background-size:cover;
+    background-repeat: no-repeat;
+    width: 160px;
+    height: 38px;
+    font-family: dungeon-font;
+    color: #ebebeb;
+    font-size: 20px;
+
+}
+button:hover{
+    background-image:url("../img/ui/ui_04.PNG");
+}
+
+
+.HUD_low{
+    height: 12vh;
 }
 
 .canvas-container{
@@ -40,8 +114,14 @@ body{
 
 .footer{
     grid-area:footer;
-    background-color: aqua;
     z-index: 100;
+    background-image:url("../img/low_bg.jpg")  ;
+    background-size: cover;
+    background-position: center center;
+    min-height: 150px;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
 }
 
 #gameCanvas {

@@ -11,12 +11,27 @@
 <body>
     <div class="game-container">
         <header class="title">
-            header
+            <h1>Escape The Dungeon - Dragon's Lair<h1>
         </header>
         <nav class="HUD">
-            Navigation
-            <button id="enableAudio" onclick='enableAudioClick()'>Enable Audio</button>
-            <button id="enableAudio" onclick='startGame()'>Start Game</button>
+            <div class="HUD_top">
+                <button id="enableAudio" onclick='enableAudioClick()'>Enable Audio</button>
+                <button id="enableAudio" onclick='startGame()'>Start Game</button>
+            </div>
+            <div class="HUD_items">
+                
+                <h1 id="playerhp">Helth:   100</h1>
+                <h1 id="playerattack">Attack:   5</h1>
+                <h1 id="playerdef">Defense:   2</h1>
+                <h1 id="score">Score:   0</h1>
+                <div id="inventory"></div>
+            </div>
+            
+    
+            <div class="HUD_low">
+                
+            </div>
+            
         </nav>
         <main class="canvas-container">
             <canvas id="gameCanvas"></canvas>

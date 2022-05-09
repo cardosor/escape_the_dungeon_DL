@@ -1,34 +1,63 @@
+//Select html elements
 const enableAudioBtn = document.querySelector('#enableAudio');
 const canvas = document.querySelector('#gameCanvas');
-let numberOfSlimes = 0;
+//Variables to hold the map raw information
 let mapDataRaw = null;
 let mapDataRawLayer2 = null;
+//Enemy number acumulator
+let numberOfSlimes = 0;
+//Array to hold the enemies
 const slimeArray = [];
+//Eneme stats
 const slimeStartHP = 20;
 const slimeStartAttack = 10;
+//Size of the tile in the sprite sheet
 const tileSize = 16;
+//Width and Hieght of the canvas
 const viewWidth = 30;
 const viewHeight = 20
+//Scale the game can be 2 or 4
 const scale = 2;
+//Canvas size in pixels
 const viewWidthPixel = viewWidth*tileSize*scale;
 const viewHeightPixel = viewHeight*tileSize*scale;
+//Hero-Slime image size the the sprite sheet
 const heroSize = 48*scale;
+//Center positoin of the Hero-Slime image
 const centerTilePos = ((tileSize*scale/2)-heroSize/2);
+//Width and Height of the world map row col in the array
 const worldWidth = viewWidth * 4;
 const worldHeight = viewHeight * 4;
+//Start posision of Hero
 const startRowCol = {row:Math.floor(viewHeight/2),col:Math.floor(viewWidth/2)};
-const mapSize = {width: worldWidth*tileSize*scale, height: worldHeight*tileSize*scale};
+//Current row and col of the mapview to world map
 const worldRowCol = {row: 0, col:0};
+//Change the cavas size
 canvas.setAttribute("height",(tileSize*scale)*viewHeight);
 canvas.setAttribute("width",(tileSize*scale)*viewWidth);
+//Speed of the player
 const playerSpeed = (16*scale)/8;
+//Set variables for frames per second
 const fps = 30;
 let now;
 let then = Date.now();
 const interval = 1000/fps;
 let delta;
 
+//Create inventory UI
+const inventory = document.querySelector("#inventory")
+for(let i = 0; i < 10; i++){
+    const item = document.createElement("div");
+    item.classList.add('item');
+    inventory.appendChild(item);
+
+}
+
+
+//Canvas context
 const ctx = canvas.getContext('2d');
+
+//Create game states and set it
 const gameStates = {
     start: 'start',
     end: 'end',
@@ -45,6 +74,7 @@ let playerAttackDrySound = null;
 let playerAttackHit = null;
 let playerAttackParry = null;
 let openChestSound = null;
+
 const enableAudioClick = () => {
     enableAudioBtn.disabled = true; 
     ambienceSound = new Audio('./sound/Where_Art_Thou_Version_01_LOOP.mp3');
@@ -70,7 +100,9 @@ const enableAudioClick = () => {
 
 };
 
-
+//===============Images===============
+//===================================
+//===================================
 
 const heroSpriteSheet = new Image(192, 528);
 heroSpriteSheet.src = 'img/chara_hero.png';
@@ -92,6 +124,9 @@ mapDataImgLayer2.src = 'img/map1.png';
 const mapData = [[]];
 const mapDataLayer2 = [[]];
 
+//===============Raw MAP data===============
+//===================================
+//===================================
 function createMapData(mapDataRawValue, mapDataValue){
     let row = 0;
     for (var i = 0, n = mapDataRawValue.data.length; i < n; i += 4) {
@@ -110,33 +145,47 @@ mapDataImg.onload = function() {
     console.log('Image one loaded');
     ctx.drawImage(mapDataImg,0,0);
     mapDataRaw = ctx.getImageData(0, 0, 120, 80);
-    mapDataImgLayer2.onload = function() {
-        console.log('Image 2 one loaded')
-        ctx.drawImage(mapDataImgLayer2,0,0);
-        mapDataRawLayer2 = ctx.getImageData(0, 0, 120, 80);
-        createMapData(mapDataRaw, mapData);
-        createMapData(mapDataRawLayer2, mapDataLayer2);
-    }
 }
-let player = null;
+mapDataImgLayer2.onload = function() {
+    console.log('Image 2 one loaded')
+    ctx.drawImage(mapDataImgLayer2,0,0);
+    mapDataRawLayer2 = ctx.getImageData(0, 0, 120, 80);
+    createMapData(mapDataRaw, mapData);
+    createMapData(mapDataRawLayer2, mapDataLayer2);
+}
+
+//==Start the Game Function==========
+//===================================
+//===================================
+let player = null; //Player Variable
+
+//Called when the player clicks on start game
 function startGame(){
+    //Create the player
     player = new Pawn("Hero",100, 0, 3, heroSpriteSheet, heroSpriteSheetFlip, startRowCol.row, startRowCol.col,playerSpeed);
+    //Empty the enemy array in case the player plays a new game
     if(slimeArray.length > 0){
         for(let i = 0, size = slimeArray.length; i < size; i++){
             slimeArray.pop();
         }
     }
+    //Reset the world row and col
     worldRowCol.row = 0;
     worldRowCol.col = 0;
+    //Create the map layer 2 array based on the raw data
     createWorldMapLayer2(mapDataLayer2);
+    //Create the map layer 1 array based on the raw data
     createWorldMap(mapData);
+    //Create - update the map view layer 1 array
     updateMapView();
+    //Create - update the map view layer 2 array
     updateMapViewLayer2();
+    gameState = gameStates.start; //Set the game state to start
+    //Draw on canvas
     draw();
-    gameState = gameStates.start;
 }
 
-
+//Return the image frames size and locations x y
 function getFrames(row, frames, size){
     let framesArray = [];
     for(let i = 0; i < frames.length; i++){
@@ -145,8 +194,10 @@ function getFrames(row, frames, size){
     return framesArray;
 }
 
+//Before the slime can walk it checks if the next array row col is not blocked
 function walkSlime(obj, speed){
     obj.state = obj.states.walk;
+    //Set the speed and increment the distance it walked
     if(obj.direction === obj.directions.up || obj.direction === obj.directions.down){
         obj.speedY = speed;
         obj.walkDistance += obj.speedY;
@@ -154,9 +205,13 @@ function walkSlime(obj, speed){
         obj.speedX = speed;
         obj.walkDistance += obj.speedX;
     }
+    //Update the location of the obj in the world map
     mapWorldLayer2[obj.mapViewRowCol.row][obj.mapViewRowCol.col].x = obj.x-centerTilePos;
     mapWorldLayer2[obj.mapViewRowCol.row][obj.mapViewRowCol.col].y = obj.y-centerTilePos;
     
+    //If the enemy has walked the distance it needed to walk
+    //Update the last and next location in the world map
+    //set the speed to 0 and end the walk cicle
     if(obj.walkDistance != 0 && obj.walkDistance%(tileSize*scale+Math.abs(speed)) === 0){
         obj.walkDistance = 0;
         let tile = tiles.nullTile;
@@ -190,6 +245,7 @@ function walkSlime(obj, speed){
         type = tileType.slime;
         mapWorldLayer2[obj.mapViewRowCol.row][obj.mapViewRowCol.col].tile = tile
         mapWorldLayer2[obj.mapViewRowCol.row][obj.mapViewRowCol.col].type = type
+        //update the map view to reflect the map world data
         updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
         obj.completeWalk = false;
         obj.walk = false;
@@ -197,8 +253,11 @@ function walkSlime(obj, speed){
     }
 }
 
+//Before the Hero can walk it checks if the next array row col is not blocked
 function walk(obj, speed){
     obj.state = obj.states.walk;
+
+    //Set the speed and increment the distance it walked
     if(obj.direction === obj.directions.up || obj.direction === obj.directions.down){
         obj.speedY = speed;
         obj.walkDistance += obj.speedY;
@@ -207,6 +266,9 @@ function walk(obj, speed){
         obj.walkDistance += obj.speedX;
     }
 
+    //If the Hero has walked the distance it needed to walk
+    //Update the last and next location in the world map
+    //set the speed to 0 and end the walk cicle
     if(obj.walkDistance != 0 && obj.walkDistance%(tileSize*scale+Math.abs(speed)) === 0){
         obj.walkDistance = 0;
         if(obj.direction === obj.directions.up || obj.direction === obj.directions.down){
@@ -214,10 +276,12 @@ function walk(obj, speed){
             if(speed < 0){
                 obj.mapWorldRowCol.row++;
                 obj.posRowCol.row++;
+                //update the world row so the map can move
                 worldRowCol.row++;
             }else{
                 obj.mapWorldRowCol.row--;
                 obj.posRowCol.row--;
+                //update the world row so the map can move
                 worldRowCol.row--;  
             }
         }
@@ -227,13 +291,16 @@ function walk(obj, speed){
             if(speed < 0){
                 obj.mapWorldRowCol.col++;
                 obj.posRowCol.col++;
+                //update the world col so the map can move
                 worldRowCol.col++;
             }else{
                 obj.mapWorldRowCol.col--;
                 obj.posRowCol.col--;
+                //update the world col so the map can move
                 worldRowCol.col--;  
             }
         }
+        //update the map view layers to reflect the current world array
         updateMapView(worldRowCol.col,worldRowCol.row);
         updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
         if(obj.completeWalk === true){
@@ -244,7 +311,7 @@ function walk(obj, speed){
     }
 }
 
-
+//Class for the slime and Hero
 class Pawn {
     constructor(name, hp, exp, attackPoints, image, imageFlip, row, col,speed){
         this.name = name,
@@ -310,30 +377,38 @@ class Pawn {
     damage(value){
         this.hp -= value;
         this.state = this.states.damage;
-        console.log(this.hp);
         if(this.hp < 0){
             this.hp = 0;
             this.state = this.states.dead;
         }
     };
     anim(ctx, data, interval){
+        //timeCounter is used to delay the animation so it does not play
+        //Every frame
         data.timeCounter += interval;
+        //Once the timeCounter reacher the animation time then it goes to the next frame
         if(data.timeCounter > data.animTime){
             data.timeCounter = 0;
             data.frame++
+            //If the frame reaches the frames length then the animation ended
             if(data.frame === data.frames.length){ 
+
                 if(this.state === this.states.attack ||
                     this.state === this.states.action ||
                     this.state === this.states.damage){
+
                     this.state = this.states.idle;
+
                 }else if(this.state === this.states.dead){
                     this.x = -100;
                     this.y = -100;  
                     if(this.name === 'Slime'){
+                        //This case the Enemy is dead
                         mapWorldLayer2[this.mapWorldRowCol.row][this.mapWorldRowCol.col].tile = tiles.nullTile;
                         mapWorldLayer2[this.mapWorldRowCol.row][this.mapWorldRowCol.col].type = tileType.floor;
                         slimeArray.splice(0,1);
                     }else{
+                        //This case the hero is dead
                         gameState = gameStates.gameOver;
                     }
                         
@@ -344,8 +419,10 @@ class Pawn {
         }    
 
         if (this.flip === true){
+            //Drase the Flip image in the canvas
             ctx.drawImage(this.imageFlip,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize,heroSize);
         }else{
+            //Drase the image in the canvas
             ctx.drawImage(this.image,data.frames[data.frame][0],data.frames[data.frame][1],data.frames[data.frame][2],data.frames[data.frame][3],this.x,this.y,heroSize,heroSize);
         }
     };
@@ -476,8 +553,12 @@ const tileType = {
     vase2: "vase2", // broken vase
     slime: 'slime'
 }
-const blockWalkItems = [tileType.wall, tileType.chest1, tileType.chest2, tileType.vase1,
-                        tileType.door, tileType.slime]
+const blockWalkItems = [tileType.wall, 
+                        tileType.chest1, 
+                        tileType.chest2, 
+                        tileType.vase1,
+                        tileType.door, 
+                        tileType.slime]
 
 function createWorldMapLayer2(data){
     if(mapWorldLayer2.length > 0){
@@ -496,9 +577,9 @@ function createWorldMapLayer2(data){
             let g = data[i][j].g;
             let b = data[i][j].b;
             if(i === 0 && j === 0){
-                console.log(r);
-                console.log(g);
-                console.log(b);
+                // console.log(r);
+                // console.log(g);
+                // console.log(b);
             }
             if(r === 0 && g === 0 && b === 0){
                 tile = tiles.nullTile;
@@ -534,13 +615,13 @@ function createWorldMap(data){
             mapWorld.pop();
         }
     }
-    console.log("map");
-    let testColorCol = 0;
-    let testColorRow = 0;
+    // console.log("map");
+    // let testColorCol = 0;
+    // let testColorRow = 0;
     
-    console.log(data[testColorRow][testColorCol].r)
-    console.log(data[testColorRow][testColorCol].g)
-    console.log(data[testColorRow][testColorCol].b)
+    // console.log(data[testColorRow][testColorCol].r)
+    // console.log(data[testColorRow][testColorCol].g)
+    // console.log(data[testColorRow][testColorCol].b)
     for(let i = 0; i < worldHeight; i++){
         let tempArray = [];
         for(let j = 0; j < worldWidth; j++){
@@ -591,6 +672,12 @@ function createWorldMap(data){
         mapWorld.push(tempArray);
     }
 }
+
+//=================== MAP VIEW ======================
+//=================== MAP VIEW ======================
+//=================== MAP VIEW ======================
+//=================== MAP VIEW ======================
+//=================== MAP VIEW ======================
 
 function updateMapViewLayer2(xOffSet, yOffSet){
     if(mapViewLayer2.length > 0){
@@ -653,6 +740,8 @@ function updateMapView(xOffSet, yOffSet){
         }
     }
 }
+//Check the action the player is doing, depeding of the action
+//It will play different sounds or interact with the objects
 function checkAction(){
     let nextRow = 10;
     let nexCol = 15;
@@ -701,7 +790,6 @@ function checkAction(){
         }
     }
     
-
     if(mapViewLayer2[nextRow][nexCol].type === tileType.floor){
         return true;
     }else{
@@ -709,6 +797,7 @@ function checkAction(){
     }
 }
 
+//Check if the player or enemy can walk in a direction
 function canWalk(obj){
     let nextRow = obj.mapViewRowCol.row;
     let nexCol = obj.mapViewRowCol.col;
@@ -740,8 +829,11 @@ function canWalk(obj){
                 }, 2000)
                 player.damage(obj.getAttack());
             }
+            slimeArray[0].attack();
         }
+
         if(mapWorld[nextRow][nexCol].type === tileType.floor){
+            //Check if the next tile have blocked items
             for(i = 0; i < blockWalkItems.length; i++){
                 if(mapWorldLayer2[nextRow][nexCol].type === blockWalkItems[i]){
                     return false;
@@ -752,7 +844,7 @@ function canWalk(obj){
             return false;
         }
     }
-
+    //Check if the next tile have blocked items for the player
     if(mapView[nextRow][nexCol].type === tileType.floor){
         for(i = 0; i < blockWalkItems.length; i++){
             if(mapViewLayer2[nextRow][nexCol].type === blockWalkItems[i]){
@@ -770,10 +862,13 @@ function draw(){
         window.requestAnimationFrame(draw);
         now = Date.now();
         delta = now - then;
+        //30 times per second
         if(delta > interval){
             then = now - (delta % interval)
+            //Clear the canvas
             ctx.clearRect(0,0,canvas.width, canvas.height);
 
+            //Player walk
             if(player.walk === true && player.direction === player.directions.right){
                 player.moveRight();
             }else if(player.walk === true && player.direction === player.directions.left){
@@ -794,6 +889,7 @@ function draw(){
       
 }
 
+//Move the view layer depending of the player movement
 function moveViewLayer1(){
     for(let i = 0; i < mapView.length; i++){
         for(let j = 0; j < mapView[0].length; j++){
@@ -807,7 +903,8 @@ function moveViewLayer1(){
         }
     }
 }
-
+//Move the view layer 2 depending of the player movement
+//Also take the Enemy in consideration as the enemy also moves
 function moveViewLayer2(){
     for(let i = 0; i < mapViewLayer2.length; i++){
         for(let j = 0; j < mapViewLayer2[0].length; j++){
@@ -912,9 +1009,10 @@ function slimeUpdate(){
             }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.down){
                 slimeArray[0].moveDown();
             } 
-
+            //Basic Enemy AI to move it around at random times
             if(Math.floor(Math.random()*100) === 50){
-                if(slimeArray[0].walk === false){
+                if(slimeArray[0].walk === false &&
+                    slimeArray[0].state !== slimeArray[0].states.damage){
                     slimeArray[0].walk = true;
                     let directions = ['right', 'left','up','down'];
                     let dirNum = Math.floor(Math.random()*4);

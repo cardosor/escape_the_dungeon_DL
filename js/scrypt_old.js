@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 const enableAudioBtn = document.querySelector('#enableAudio');
 const canvas = document.querySelector('#gameCanvas');
 let numberOfSlimes = 0;
@@ -25,12 +33,6 @@ const interval = 1000/fps;
 let delta;
 
 const ctx = canvas.getContext('2d');
-const gameStates = {
-    start: 'start',
-    end: 'end',
-    gameOver: 'gameover'
-}
-const gameState = gameStates.start;
 
 
 //===============Audio===============
@@ -161,8 +163,10 @@ function walkSlime(obj, speed){
         if(obj.direction === obj.directions.up || obj.direction === obj.directions.down){
             obj.speedY = 0;
             if(speed < 0){
+                obj.mapWorldRowCol.row++;
                 obj.mapViewRowCol.row++;
             }else{
+                obj.mapWorldRowCol.row--;
                 obj.mapViewRowCol.row--;
             }
         }
@@ -170,8 +174,10 @@ function walkSlime(obj, speed){
         {
             obj.speedX = 0;
             if(speed < 0){
+                obj.mapWorldRowCol.col++;
                 obj.mapViewRowCol.col++;
             }else{
+                obj.mapWorldRowCol.col--;
                 obj.mapViewRowCol.col--; 
             }
         }
@@ -180,11 +186,9 @@ function walkSlime(obj, speed){
         mapWorldLayer2[obj.mapViewRowCol.row][obj.mapViewRowCol.col].tile = tile
         mapWorldLayer2[obj.mapViewRowCol.row][obj.mapViewRowCol.col].type = type
         updateMapViewLayer2(worldRowCol.col,worldRowCol.row);
-        if(obj.completeWalk === true){
-            obj.completeWalk = false;
-            obj.walk = false;
-            obj.state = obj.states.idle;
-        }
+        obj.completeWalk === true
+        obj.walk = false;
+        obj.state = obj.states.idle;
     }
 }
 
@@ -311,19 +315,21 @@ class Pawn {
             data.timeCounter = 0;
             data.frame++
             if(data.frame === data.frames.length){ 
+
                 if(this.state === this.states.attack ||
                     this.state === this.states.action ||
                     this.state === this.states.damage){
                     this.state = this.states.idle;
                 }else if(this.state === this.states.dead){
+                    console.log(this.mapWorldRowCol.row);
+                    console.log(this.mapWorldRowCol.col);
+                    mapWorldLayer2[this.mapWorldRowCol.row][this.mapWorldRowCol.col].tile = tiles.nullTile;
+                    mapWorldLayer2[this.mapWorldRowCol.row][this.mapWorldRowCol.col].type = tileType.floor;
                     this.x = -100;
                     this.y = -100;  
-                    if(this.name === 'Slime'){
-                        mapWorldLayer2[this.mapWorldRowCol.row][this.mapWorldRowCol.col].tile = tiles.nullTile;
-                        mapWorldLayer2[this.mapWorldRowCol.row][this.mapWorldRowCol.col].type = tileType.floor;
-                        slimeArray.splice(0,1);
-                    }
-                        
+                    slimeArray.splice(0,1); 
+                    console.log("remove slime from array")
+                    console.log("slimeArray " + slimeArray.length)     
                 }
                 this.performingAction = false;
                 data.frame = 0;
@@ -419,7 +425,7 @@ class Pawn {
     }
 }
 
-const player = new Pawn("Hero",1, 0, 3, heroSpriteSheet, heroSpriteSheetFlip, startRowCol.row, startRowCol.col,playerSpeed);
+const player = new Pawn("Hero",100, 0, 3, heroSpriteSheet, heroSpriteSheetFlip, startRowCol.row, startRowCol.col,playerSpeed);
 
 //=================== MAP ======================
 //=================== MAP ======================
@@ -646,11 +652,13 @@ function checkAction(){
         let soundPlayed = false;
         for(i = 0; i < blockWalkItems.length; i++){
             if(mapViewLayer2[nextRow][nexCol].type === blockWalkItems[i]){
+                console.log("checkAction " + blockWalkItems[i]);
                 if(blockWalkItems[i] === tileType.slime){
                     if(playerAttackHit !== null){
                         playerAttackHit.play();
                     }
                     slimeArray[0].damage(player.getAttack())
+                    console.log(slimeArray[0].getHP())
                 }else{
                     if(playerAttackParry !== null){
                         playerAttackParry.play();
@@ -710,8 +718,9 @@ function canWalk(obj){
     
     if(obj.name === "Slime"){
         if(nextRow === player.mapWorldRowCol.row && nexCol === player.mapWorldRowCol.col){
+            console.log("attack")
             obj.attack();
-            player.damage(obj.getAttack());
+            return false;
         }
         if(mapWorld[nextRow][nexCol].type === tileType.floor){
             for(i = 0; i < blockWalkItems.length; i++){
@@ -784,161 +793,142 @@ function draw(){
                 }else{
                     if(mapViewLayer2[i][j].type === 'slime')
                     {
-                        if(slimeArray[0]){
-                            mapViewLayer2[i][j].x = mapViewLayer2[i][j].x - slimeArray[0].speedX;
-                            mapViewLayer2[i][j].y = mapViewLayer2[i][j].y - slimeArray[0].speedY;
-                            slimeArray[0].x = mapViewLayer2[i][j].x+(tileSize*scale/2-heroSize/2);
-                            slimeArray[0].y = mapViewLayer2[i][j].y+(tileSize*scale/2-heroSize/2);
-                        }
-                        
+                        mapViewLayer2[i][j].x = mapViewLayer2[i][j].x - slimeArray[0].speedX;
+                        mapViewLayer2[i][j].y = mapViewLayer2[i][j].y - slimeArray[0].speedY;
+                        slimeArray[0].x = mapViewLayer2[i][j].x+(tileSize*scale/2-heroSize/2);
+                        slimeArray[0].y = mapViewLayer2[i][j].y+(tileSize*scale/2-heroSize/2);
                         
                     } 
                 }
             }
         }
-        
-        slimeUpdate();
-        playerUpdate() 
-    }  
-}
+        if (slimeArray.length > 0 &&
+            slimeArray[0].x > 0 && 
+            slimeArray[0].x < viewWidthPixel-heroSize/2 && 
+            slimeArray[0].y > 0 && 
+            slimeArray[0].y < viewHeightPixel-heroSize/2){
 
-function playerUpdate(){
+            if(slimeArray[0].state !== slimeArray[0].states.dead){
+                if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.right){
+                    slimeArray[0].moveRight();
+                }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.left){
+                    slimeArray[0].moveLeft();
+                }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.up){
+                    slimeArray[0].moveUp();
+                }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.down){
+                    slimeArray[0].moveDown();
+                } 
 
-    switch(player.state){
-        case player.states.idle:
-            if(player.flip === true){
-                player.anim(ctx, player.idleFlip, interval);
-            }else{
-                player.anim(ctx, player.idle, interval);
+                // if(Math.floor(Math.random()*100) === 50){
+                //     if(slimeArray[0].walk === false){
+                //         console.log("slime walk");
+                //         slimeArray[0].walk = true;
+                //         let directions = ['right', 'left','up','down'];
+                //         let dirNum = Math.floor(Math.random()*4);
+                //         slimeArray[0].direction = slimeArray[0].directions[directions[dirNum]];
+                //     }else{
+                //         slimeArray[0].completeWalk = true;
+                //     }
+                    
+                // }else{
+                //     slimeArray[0].completeWalk = true;
+                // }
             }
-            break;
-        case player.states.walk:
-            switch(player.direction){
-                case player.directions.left:
-                    player.flip = true;
-                    player.anim(ctx, player.walkLeft, interval);
-                break;
-                case player.directions.right:
-                    player.flip = false;
-                    player.anim(ctx, player.walkRight, interval);
-                break;
-                case player.directions.up:
-                    player.anim(ctx, player.walkUp, interval);
-                break;
-                case player.directions.down:
-                    player.anim(ctx, player.walkDown, interval);
-                break;
-
-            }
-            break;
-        case player.states.attack:
-            player.attack();
-            break;
-        case player.states.action:
-            player.action();
-            break;
-        case player.states.damage:
-            if(slimeArray[0].direction === slimeArray[0].directions.right){
-                player.flip = true
-            }else{
-                player.flip = false
-            }
-            if(player.flip === true){
-                player.anim(ctx, player.takeDamageFlip, interval);
-            }else{
-                player.anim(ctx, player.takeDamage, interval);
-            }
-            break;
-        case player.states.dead:
-            player.anim(ctx, player.deadAnim, interval);
-            break;
-        default:
-            break;
-    }
-
-}
-
-function slimeUpdate(){
-    if (slimeArray.length > 0 &&
-        slimeArray[0].x > 0 && 
-        slimeArray[0].x < viewWidthPixel-heroSize/2 && 
-        slimeArray[0].y > 0 && 
-        slimeArray[0].y < viewHeightPixel-heroSize/2){
-
-        if(slimeArray[0].state !== slimeArray[0].states.dead){
-            if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.right){
-                slimeArray[0].moveRight();
-            }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.left){
-                slimeArray[0].moveLeft();
-            }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.up){
-                slimeArray[0].moveUp();
-            }else if(slimeArray[0].walk === true && slimeArray[0].direction === slimeArray[0].directions.down){
-                slimeArray[0].moveDown();
-            } 
-
-            if(Math.floor(Math.random()*100) === 50){
-                if(slimeArray[0].walk === false){
-                    slimeArray[0].walk = true;
-                    let directions = ['right', 'left','up','down'];
-                    let dirNum = Math.floor(Math.random()*4);
-                    slimeArray[0].direction = slimeArray[0].directions[directions[dirNum]];
-                }else{
-                    slimeArray[0].completeWalk = true;
-                }   
+            switch(slimeArray[0].state){
+                case slimeArray[0].states.idle:
+                    if(slimeArray[0].flip === true){
+                        slimeArray[0].anim(ctx, slimeArray[0].idleFlip, interval);
+                    }else{
+                        slimeArray[0].anim(ctx, slimeArray[0].idle, interval);
+                    }
+                    break;
+                case slimeArray[0].states.walk:
+                    switch(slimeArray[0].direction){
+                        case slimeArray[0].directions.left:
+                            slimeArray[0].flip = true;
+                            slimeArray[0].anim(ctx, slimeArray[0].walkLeft, interval);
+                        break;
+                        case slimeArray[0].directions.right:
+                            slimeArray[0].flip = false;
+                            slimeArray[0].anim(ctx, slimeArray[0].walkRight, interval);
+                        break;
+                        case slimeArray[0].directions.up:
+                            slimeArray[0].anim(ctx, slimeArray[0].walkUp, interval);
+                        break;
+                        case slimeArray[0].directions.down:
+                            slimeArray[0].anim(ctx, slimeArray[0].walkDown, interval);
+                        break;
+    
+                    }
+                    break;
+                case slimeArray[0].states.attack:
+                    slimeArray[0].attack();
+                    break;
+                case slimeArray[0].states.action:
+                    slimeArray[0].action();
+                    break;
+                case slimeArray[0].states.damage:
+                    if(player.direction === player.directions.right){
+                        slimeArray[0].flip = true
+                    }else{
+                        slimeArray[0].flip = false
+                    }
+                    if(slimeArray[0].flip === true){
+                            slimeArray[0].anim(ctx, slimeArray[0].takeDamageFlip, interval);
+                    }else{
+                        slimeArray[0].anim(ctx, slimeArray[0].takeDamage, interval);
+                    }
+                    break;
+                case slimeArray[0].states.dead:
+                    slimeArray[0].anim(ctx, slimeArray[0].deadAnim, interval);
+                    break;
+                default:
+                    break;
             }
         }
-        switch(slimeArray[0].state){
-            case slimeArray[0].states.idle:
-                if(slimeArray[0].flip === true){
-                    slimeArray[0].anim(ctx, slimeArray[0].idleFlip, interval);
+
+        
+        
+        
+        switch(player.state){
+            case player.states.idle:
+                if(player.flip === true){
+                    player.anim(ctx, player.idleFlip, interval);
                 }else{
-                    slimeArray[0].anim(ctx, slimeArray[0].idle, interval);
+                    player.anim(ctx, player.idle, interval);
                 }
                 break;
-            case slimeArray[0].states.walk:
-                switch(slimeArray[0].direction){
-                    case slimeArray[0].directions.left:
-                        slimeArray[0].flip = true;
-                        slimeArray[0].anim(ctx, slimeArray[0].walkLeft, interval);
+            case player.states.walk:
+                switch(player.direction){
+                    case player.directions.left:
+                        player.flip = true;
+                        player.anim(ctx, player.walkLeft, interval);
                     break;
-                    case slimeArray[0].directions.right:
-                        slimeArray[0].flip = false;
-                        slimeArray[0].anim(ctx, slimeArray[0].walkRight, interval);
+                    case player.directions.right:
+                        player.flip = false;
+                        player.anim(ctx, player.walkRight, interval);
                     break;
-                    case slimeArray[0].directions.up:
-                        slimeArray[0].anim(ctx, slimeArray[0].walkUp, interval);
+                    case player.directions.up:
+                        player.anim(ctx, player.walkUp, interval);
                     break;
-                    case slimeArray[0].directions.down:
-                        slimeArray[0].anim(ctx, slimeArray[0].walkDown, interval);
+                    case player.directions.down:
+                        player.anim(ctx, player.walkDown, interval);
                     break;
 
                 }
                 break;
-            case slimeArray[0].states.attack:
-                slimeArray[0].attack();
+            case player.states.attack:
+                player.attack();
                 break;
-            case slimeArray[0].states.action:
-                slimeArray[0].action();
-                break;
-            case slimeArray[0].states.damage:
-                if(player.direction === player.directions.right){
-                    slimeArray[0].flip = true
-                }else{
-                    slimeArray[0].flip = false
-                }
-                if(slimeArray[0].flip === true){
-                        slimeArray[0].anim(ctx, slimeArray[0].takeDamageFlip, interval);
-                }else{
-                    slimeArray[0].anim(ctx, slimeArray[0].takeDamage, interval);
-                }
-                break;
-            case slimeArray[0].states.dead:
-                slimeArray[0].anim(ctx, slimeArray[0].deadAnim, interval);
+            case player.states.action:
+                player.action();
                 break;
             default:
                 break;
         }
-    }
+        
+        
+    }  
 }
 
 function isPerformingAction(){
@@ -951,35 +941,37 @@ function isPerformingAction(){
 
 function keyPressed(e){
     //console.log("key pressed" + e.code);
-    if(player.state !== player.states.dead){
-        if((e.code).toLowerCase() === 'keyw'){
-            if(player.walk === false && !isPerformingAction()){
-                player.walk = true;
-                player.direction = player.directions.up;
-            }
-        }else if((e.code).toLowerCase() === 'keys'){
-            if(player.walk === false && !isPerformingAction()){
-                player.walk = true;
-                player.direction = player.directions.down;
-            }
-        }else if((e.code).toLowerCase() === 'keya'){
-            if(player.walk === false && !isPerformingAction()){
-                player.walk = true;
-                player.direction = player.directions.left;
-            }
-        }else if((e.code).toLowerCase() === 'keyd'){
-            if(player.walk === false && !isPerformingAction()){
-                player.walk = true;
-                player.direction = player.directions.right;
-            }
-        }else if((e.code).toLowerCase() === 'space'){
-            if(player.walk === false && !isPerformingAction()){
-                player.state = player.states.attack;
-            }
-        }else if((e.code).toLowerCase() === 'keye'){
-            if(player.walk === false && !isPerformingAction()){
-                player.state = player.states.action;
-            }
+    if((e.code).toLowerCase() === 'keyw'){
+        if(player.walk === false && !isPerformingAction()){
+            player.walk = true;
+            player.direction = player.directions.up;
+        }
+    }else if((e.code).toLowerCase() === 'keys'){
+        if(player.walk === false && !isPerformingAction()){
+            player.walk = true;
+            player.direction = player.directions.down;
+        }
+    }else if((e.code).toLowerCase() === 'keya'){
+        slimeArray[0].walk = true;
+        slimeArray[0].direction = slimeArray[0].directions.left;
+        if(player.walk === false && !isPerformingAction()){
+            player.walk = true;
+            player.direction = player.directions.left;
+        }
+    }else if((e.code).toLowerCase() === 'keyd'){
+        slimeArray[0].walk = true;
+        slimeArray[0].direction = slimeArray[0].directions.right;
+        if(player.walk === false && !isPerformingAction()){
+            player.walk = true;
+            player.direction = player.directions.right;
+        }
+    }else if((e.code).toLowerCase() === 'space'){
+        if(player.walk === false && !isPerformingAction()){
+            player.state = player.states.attack;
+        }
+    }else if((e.code).toLowerCase() === 'keye'){
+        if(player.walk === false && !isPerformingAction()){
+            player.state = player.states.action;
         }
     }
 }
