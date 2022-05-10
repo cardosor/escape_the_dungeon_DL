@@ -1,6 +1,10 @@
 //Select html elements
 const enableAudioBtn = document.querySelector('#enableAudio');
 const canvas = document.querySelector('#gameCanvas');
+const playerHP = document.querySelector('#playerhp');
+const playerScore = document.querySelector('#score');
+const playerDef = document.querySelector('#playerdef');
+const playerAttack = document.querySelector('#playerattack');
 //Variables to hold the map raw information
 let mapDataRaw = null;
 let mapDataRawLayer2 = null;
@@ -43,6 +47,10 @@ let now;
 let then = Date.now();
 const interval = 1000/fps;
 let delta;
+
+var isChromium = window.chrome;
+
+let score = 0;
 
 //Create inventory UI
 const inventory = document.querySelector("#inventory")
@@ -145,12 +153,12 @@ mapDataImg.onload = function() {
     console.log('Image one loaded');
     ctx.drawImage(mapDataImg,0,0);
     mapDataRaw = ctx.getImageData(0, 0, 120, 80);
+    createMapData(mapDataRaw, mapData);
 }
 mapDataImgLayer2.onload = function() {
     console.log('Image 2 one loaded')
     ctx.drawImage(mapDataImgLayer2,0,0);
     mapDataRawLayer2 = ctx.getImageData(0, 0, 120, 80);
-    createMapData(mapDataRaw, mapData);
     createMapData(mapDataRawLayer2, mapDataLayer2);
 }
 
@@ -162,7 +170,12 @@ let player = null; //Player Variable
 //Called when the player clicks on start game
 function startGame(){
     //Create the player
+    score = 0;
+    playerScore.textContent = "Score:   "+score;
     player = new Pawn("Hero",100, 0, 3, heroSpriteSheet, heroSpriteSheetFlip, startRowCol.row, startRowCol.col,playerSpeed);
+    playerHP.textContent = "Helth:   "+player.hp;
+    playerDef.textContent = "Defense:   "+player.def;
+    playerAttack.textContent = "Attack:   "+player.attackPoints;
     //Empty the enemy array in case the player plays a new game
     if(slimeArray.length > 0){
         for(let i = 0, size = slimeArray.length; i < size; i++){
@@ -352,6 +365,7 @@ class Pawn {
         this.hp = hp,
         this.exp = exp,
         this.attackPoints = attackPoints,
+        this.def = 2,
         this.idle = {timeCounter:0, animTime:100, frame:0, frames: getFrames(0,[0,1,2,1],48)},
         this.idleFlip = {timeCounter:0, animTime:100, frame:0, frames: getFrames(0,[3,2,1,2],48)},
         this.actionAnim = {timeCounter:0, animTime:100, frame:0, frames: getFrames(1,[0,1,2,1],48)},
@@ -561,10 +575,15 @@ const blockWalkItems = [tileType.wall,
                         tileType.slime]
 
 function createWorldMapLayer2(data){
+    console.log('createWorldMapLayer2');
     if(mapWorldLayer2.length > 0){
         for(let i = 0, size = mapWorldLayer2.length; i < size; i++){
             mapWorldLayer2.pop();
         }
+    }
+    let addToColor = 0;
+    if(isChromium ===  true){
+        addToColor = 1;
     }
     for(let i = 0; i < worldHeight; i++){
         let tempArray = [];
@@ -576,15 +595,15 @@ function createWorldMapLayer2(data){
             let r = data[i][j].r;
             let g = data[i][j].g;
             let b = data[i][j].b;
-            if(i === 0 && j === 0){
-                // console.log(r);
-                // console.log(g);
-                // console.log(b);
+            if(i === 26 && j === 19){
+                 console.log(r);
+                 console.log(g);
+                 console.log(b);
             }
             if(r === 0 && g === 0 && b === 0){
                 tile = tiles.nullTile;
                 type = tileType.wall;
-            }else if(r === 126 && g === 126 && b ===126){
+            }else if(r === 126+addToColor && g === 126+addToColor && b ===126+addToColor){
                 tile = tiles.nullTile;
                 type = tileType.floor;
             }else if(r === 255 && g === 199 && b ===21){
@@ -610,18 +629,12 @@ function createWorldMapLayer2(data){
 
 
 function createWorldMap(data){
+    console.log('createWorldMapLayer1');
     if(mapWorld.length > 0){
         for(let i = 0, size = mapWorld.length; i < size; i++){
             mapWorld.pop();
         }
     }
-    // console.log("map");
-    // let testColorCol = 0;
-    // let testColorRow = 0;
-    
-    // console.log(data[testColorRow][testColorCol].r)
-    // console.log(data[testColorRow][testColorCol].g)
-    // console.log(data[testColorRow][testColorCol].b)
     for(let i = 0; i < worldHeight; i++){
         let tempArray = [];
         for(let j = 0; j < worldWidth; j++){
@@ -762,6 +775,8 @@ function checkAction(){
                     if(playerAttackHit !== null){
                         playerAttackHit.play();
                     }
+                    score = score + 100;
+                    playerScore.textContent = "Score:   "+score;
                     slimeArray[0].damage(player.getAttack())
                 }else{
                     if(playerAttackParry !== null){
@@ -782,6 +797,12 @@ function checkAction(){
 
     }else if(player.state === player.states.action){
         if(mapViewLayer2[nextRow][nexCol].type === tileType.chest1){
+            player.hp +=20;
+            player.attackPoints +=2;
+            player.def+=1;
+            playerHP.textContent = "Helth:   "+player.hp;
+            playerDef.textContent = "Defense:   "+player.def;
+            playerAttack.textContent = "Attack:   "+player.attackPoints;
             mapViewLayer2[nextRow][nexCol].tile = tiles.chest2;
             mapViewLayer2[nextRow][nexCol].type = tileType.chest2;
             if(openChestSound !== null){
@@ -828,6 +849,7 @@ function canWalk(obj){
                     player.godMode = false;
                 }, 2000)
                 player.damage(obj.getAttack());
+                playerHP.textContent = "Helth:   "+player.hp;
             }
             slimeArray[0].attack();
         }
@@ -883,8 +905,12 @@ function draw(){
             slimeUpdate();
             playerUpdate() 
         }
-    }else{
-
+    }else if(gameState === gameStates.gameOver){
+        gameState = gameStates.end
+        alert("Game Over")
+    }if(slimeArray.length === 0 && gameState !== gameStates.end){
+        gameState = gameStates.end
+        alert("You are the Best. You escaped the Dungeon.\n What is Next?")
     }
       
 }
