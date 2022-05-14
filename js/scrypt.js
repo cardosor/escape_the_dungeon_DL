@@ -196,6 +196,8 @@ function startGame(){
     gameState = gameStates.start; //Set the game state to start
     //Draw on canvas
     draw();
+    canvas.setAttribute('tabindex', '0')
+    canvas.focus();
 }
 
 //Return the image frames size and locations x y
@@ -536,7 +538,7 @@ const mapWorld = [];
 const mapWorldLayer2 = [];
 const tiles = {
     nullTile:{row:null, col:null},
-    black: {row: 0, col:20},
+    black: {row: 21, col:17},
     floorOneOne : {row:0, col:0},
     void: {row:0, col:3},
     wallLTR: {row:9, col:1},
@@ -555,6 +557,9 @@ const tiles = {
     vase2: {row:16, col:17},
     slime: {row:null, col:null}
 };
+
+const tileTypeArray = ['wall', 'floor', 'door', 'chest1','chest2', 'vase1',
+                        'vase2', 'slime'];
 
 const tileType = {
     wall: "wall",
@@ -595,31 +600,38 @@ function createWorldMapLayer2(data){
             let r = data[i][j].r;
             let g = data[i][j].g;
             let b = data[i][j].b;
-            if(i === 26 && j === 19){
+            if(i === 12 && j === 15){
                  console.log(r);
                  console.log(g);
                  console.log(b);
             }
-            if(r === 0 && g === 0 && b === 0){
-                tile = tiles.nullTile;
-                type = tileType.wall;
-            }else if(r === 126+addToColor && g === 126+addToColor && b ===126+addToColor){
+            // if(r === 0 && g === 0 && b === 0){
+            //     tile = tiles.nullTile;
+            //     type = tileType.wall;
+            // }else if(r === 126+addToColor && g === 126+addToColor && b ===126+addToColor){
+            //     tile = tiles.nullTile;
+            //     type = tileType.floor;
+            // }else if(r === 255 && g === 199 && b ===21){
+            //     tile = tiles.chest1;
+            //     type = tileType.chest1;
+            // }else if(r === 183 && g === 121 && b ===87){
+            //     tile = tiles.vase1;
+            //     type = tileType.vase1;
+            // }else 
+            if(r === 126 && g === 126 && b ===126){
                 tile = tiles.nullTile;
                 type = tileType.floor;
-            }else if(r === 255 && g === 199 && b ===21){
-                tile = tiles.chest1;
-                type = tileType.chest1;
-            }else if(r === 183 && g === 121 && b ===87){
-                tile = tiles.vase1;
-                type = tileType.vase1;
-            }else if(r === 65 && g === 65 && b ===115){
+            }else if(r === 0 && g === 255 && b ===0){
                 tile = tiles.slime;
                 type = tileType.slime;
                 slimeArray.push(new Pawn("Slime",slimeStartAttack+(numberOfSlimes), 0, slimeStartHP+(numberOfSlimes*2), slimeSpriteSheet,slimeSpriteSheetFlip, i,j,1));
                 numberOfSlimes++;
-            }else{
+            }else if(r === 0 && g === 0 && b === 0 || r+b+g === 765){
                 tile = tiles.nullTile;
                 type = tileType.wall;
+            }else{
+                tile = {row:r/11, col:b/12};
+                type = tileTypeArray[g];
             }
             tempArray.push({tile:tile,type:type,x:x,y:y});
         }
@@ -645,41 +657,50 @@ function createWorldMap(data){
             let r = data[i][j].r;
             let g = data[i][j].g;
             let b = data[i][j].b;
+            // if(r === 0 && g === 0 && b === 0){
+            //     tile = tiles.black;
+            //     type = tileType.wall;
+            // }else if(r === 254 && g === 126 && b === 126) {
+            //     tile = tiles.wallLTL;
+            //     type = tileType.wall;
+            // }else if(r === 126 && g === 66 && b === 66) {
+            //     tile = tiles.wallLBL;
+            //     type = tileType.wall;
+            // }else if(r === 127 && g === 255 && b === 127) {
+            //     tile = tiles.wallLTR;
+            //     type = tileType.wall;
+            // }else if(r === 6 && g === 255 && b === 4) {
+            //     tile = tiles.wallLBR;
+            //     type = tileType.wall;
+            // }else if(r === 255 && g === 255 && b === 127) {
+            //     tile = tiles.wallCenterTop;
+            //     type = tileType.wall;
+            // }else if(r === 254 && g === 0 && b === 0) {
+            //     tile = tiles.wallCenterSides;
+            //     type = tileType.wall;
+            // }else if(r === 126 && g === 126 && b === 0) {
+            //     tile = tiles.wallSEB;
+            //     type = tileType.wall;
+            // }else if(r === 0 && g === 0 && b === 255) {
+            //     tile = tiles.doorV0;
+            //     type = tileType.wall;
+            // }else if(r === 0 && g === 0 && b === 126) {
+            //     tile = tiles.doorV1;
+            //     type = tileType.wall;
+            // }
+            // else{
+            //     tile = tiles.floorOneOne;
+            //     type = tileType.floor;
+            // }
             if(r === 0 && g === 0 && b === 0){
                 tile = tiles.black;
                 type = tileType.wall;
-            }else if(r === 254 && g === 126 && b === 126) {
-                tile = tiles.wallLTL;
-                type = tileType.wall;
-            }else if(r === 126 && g === 66 && b === 66) {
-                tile = tiles.wallLBL;
-                type = tileType.wall;
-            }else if(r === 127 && g === 255 && b === 127) {
-                tile = tiles.wallLTR;
-                type = tileType.wall;
-            }else if(r === 6 && g === 255 && b === 4) {
-                tile = tiles.wallLBR;
-                type = tileType.wall;
-            }else if(r === 255 && g === 255 && b === 127) {
-                tile = tiles.wallCenterTop;
-                type = tileType.wall;
-            }else if(r === 254 && g === 0 && b === 0) {
-                tile = tiles.wallCenterSides;
-                type = tileType.wall;
-            }else if(r === 126 && g === 126 && b === 0) {
-                tile = tiles.wallSEB;
-                type = tileType.wall;
-            }else if(r === 0 && g === 0 && b === 255) {
-                tile = tiles.doorV0;
-                type = tileType.wall;
-            }else if(r === 0 && g === 0 && b === 126) {
-                tile = tiles.doorV1;
-                type = tileType.wall;
             }
             else{
-                tile = tiles.floorOneOne;
-                type = tileType.floor;
+                tile = {row:r/11, col:b/12};
+                type = tileTypeArray[g];
             }
+            
             tempArray.push({tile:tile,type:type,x:x,y:y});
         }
         mapWorld.push(tempArray);
